@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RTI Navigator — 2-Person Build Flow</title>
+<style>
+:root {
+  --bg:#080a0f; --panel:#0d1017; --panel2:#111621; --border:#252c38;
+  --text:#eef1f5; --muted:#8d97a8; --dim:#586276;
+  --green:#b6f000; --blue:#35bdf5; --green-soft:#162000; --blue-soft:#071a25;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.sidebar{position:fixed;left:0;top:0;bottom:0;width:275px;background:#07090d;border-right:1px solid var(--border);padding:24px 15px;overflow:auto}
+.brand{font-size:17px;font-weight:800;letter-spacing:-.02em;padding:5px 10px}
+.sub{font-size:11px;color:var(--muted);padding:0 10px 22px}
+.nav-title{font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:#5f6979;padding:8px 10px}
+nav a{display:block;text-decoration:none;color:#9ca5b4;font-size:12px;padding:8px 10px;border-radius:7px;margin:2px 0}
+nav a:hover,nav a.active{background:#151a23;color:#fff}
+main{margin-left:275px;padding:0 26px 70px;max-width:1450px}
+.hero{padding:48px 0 28px;border-bottom:1px solid var(--border)}
+.eyebrow{font:10px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--blue);letter-spacing:.14em}
+h1{font-size:40px;line-height:1.05;letter-spacing:-.045em;margin:10px 0 8px}
+.hero p{margin:0;color:var(--muted);font-size:13px;max-width:900px}
+.badges{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
+.badge{border:1px solid var(--border);background:#10141b;color:#aeb7c4;border-radius:999px;padding:5px 9px;font-size:10px}
+.section{padding:34px 0 10px}
+.section-title{font-size:21px;font-weight:750;margin:0 0 16px;border-bottom:1px solid var(--border);padding-bottom:10px}
+.tracks{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.track{border:1px solid var(--border);border-radius:12px;background:linear-gradient(180deg,#0e1219,#0b0e14);padding:24px;min-height:220px;position:relative;overflow:hidden}
+.track.a{border-top:3px solid var(--green)}
+.track.b{border-top:3px solid var(--blue)}
+.track .label{font:11px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.12em;margin-bottom:15px}
+.track.a .label{color:var(--green)} .track.b .label{color:var(--blue)}
+.track h2{font-size:21px;margin:0 0 18px;letter-spacing:-.02em}
+.item{margin:10px 0;font-size:13px;color:#c2c9d3}
+.item strong{color:#f0f2f6}
+.arrow{color:var(--green);margin-right:8px} .track.b .arrow{color:var(--blue)}
+.shared{margin-top:18px;background:#171d28;border:1px solid #252d3a;border-radius:9px;padding:12px;text-align:center;font:11px ui-monospace,SFMono-Regular,Menlo,monospace;color:#657087}
+.shared b.a{color:var(--green)} .shared b.b{color:var(--blue)}
+.flow{margin-top:20px;border:1px solid var(--border);border-radius:12px;background:#0c1017;padding:22px;overflow:auto}
+.flowline{display:flex;align-items:center;gap:9px;min-width:900px;justify-content:center;flex-wrap:nowrap}
+.node{border:1px solid #303847;background:#141923;border-radius:8px;padding:10px 13px;text-align:center;font-size:11px;white-space:nowrap}
+.node.a{border-color:#4a6300} .node.b{border-color:#14506b}
+.arrowline{color:#667286;font-size:18px}
+.handoff{margin:20px auto 4px;max-width:430px;border:1px solid var(--green);background:var(--green-soft);border-radius:9px;padding:12px;text-align:center}
+.handoff .small{font:10px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--green);letter-spacing:.12em}
+.handoff strong{display:block;margin-top:5px}
+.table-wrap{overflow:auto;border:1px solid var(--border);border-radius:10px}
+table{width:100%;border-collapse:collapse;min-width:980px}
+th{background:#121722;color:#718096;font:10px ui-monospace,SFMono-Regular,Menlo,monospace;text-transform:uppercase;letter-spacing:.08em;text-align:left}
+th,td{padding:14px 16px;border-bottom:1px solid var(--border);vertical-align:top}
+td{font-size:12px;color:#c4cad4}
+td.phase{width:145px;background:#10141d}
+.phase-num{font-weight:750;color:#eef1f5;font-size:14px}
+.phase-sub{font:10px ui-monospace,SFMono-Regular,Menlo,monospace;color:#566174;margin-top:3px}
+td.tracka strong{color:var(--green)} td.trackb strong{color:var(--blue)}
+.integration{background:#111722;border:1px solid var(--border);border-radius:12px;padding:20px;margin-top:20px}
+.integration h3{margin:0 0 12px;font-size:15px}
+.integration ol{margin:0;padding-left:20px;color:#bdc5d0;font-size:12px}
+.integration li{margin:8px 0}
+.code{background:#080b10;border:1px solid #202732;border-radius:8px;padding:14px;font:11px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;color:#aeb8c7;overflow:auto;margin-top:14px}
+.rules{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.rule{border:1px solid var(--border);background:#0e1219;border-radius:9px;padding:14px}
+.rule b{display:block;font-size:12px;margin-bottom:5px} .rule span{font-size:11px;color:var(--muted)}
+@media(max-width:900px){
+.sidebar{position:relative;width:100%;height:auto;max-height:260px}
+main{margin-left:0;padding:0 15px 50px}
+.tracks,.rules{grid-template-columns:1fr}
+h1{font-size:31px}
+}
+</style>
+</head>
+<body>
+<aside class="sidebar">
+  <div class="brand">RTI NAVIGATOR</div>
+  <div class="sub">2-person build flow · ownership + integration</div>
+  <div class="nav-title">Flow</div>
+  <nav>
+    <a href="#start">01 · Start Together</a>
+    <a href="#tracks">02 · Parallel Tracks</a>
+    <a href="#handoff">03 · Integration Boundary</a>
+    <a href="#phases">04 · Build Progression</a>
+    <a href="#integration">05 · Integration Rules</a>
+    <a href="#final">06 · Final Flow</a>
+  </nav>
+</aside>
+
+<main>
+<header class="hero" id="start">
+  <div class="eyebrow">BUILD WHAT MOVES INDIA · EXECUTION BLUEPRINT</div>
+  <h1>RTI Navigator — 2-Person Build Flow</h1>
+  <p>Step-by-step ownership for two full-stack vertical tracks, with the exact handoff and integration points. No day-by-day schedule.</p>
+  <div class="badges">
+    <span class="badge">PERSON 1 · SMART RTI CREATION</span>
+    <span class="badge">PERSON 2 · RTI LIFECYCLE</span>
+    <span class="badge">FULL-STACK VERTICAL OWNERSHIP</span>
+    <span class="badge">MODULAR MONOLITH</span>
+  </div>
+</header>
+
+<section class="section" id="tracks">
+  <h2 class="section-title">Start Here — Two Independent Tracks</h2>
+  <div class="tracks">
+    <div class="track a">
+      <div class="label">● TRACK A</div>
+      <h2>Smart RTI Creation</h2>
+      <div class="item"><span class="arrow">→</span><strong>Intent + Routing</strong> — natural-language input, RTI suitability, Central/State jurisdiction and deterministic rules</div>
+      <div class="item"><span class="arrow">→</span><strong>Authority Finder</strong> — curated authority dataset, matching, recommendation, explanation and manual override</div>
+      <div class="item"><span class="arrow">→</span><strong>Draft + Quality</strong> — AI draft, editing, validation, character limit, specificity and readiness checks</div>
+      <div class="item"><span class="arrow">→</span><strong>Ready-to-File</strong> — produces the validated handoff object consumed by Track B</div>
+    </div>
+    <div class="track b">
+      <div class="label">● TRACK B</div>
+      <h2>RTI Lifecycle</h2>
+      <div class="item"><span class="arrow">→</span><strong>Filing Skeleton</strong> — applicant details, documents, review and filing navigation</div>
+      <div class="item"><span class="arrow">→</span><strong>Payment + Submission</strong> — mock payment, failure/retry, submission and registration number</div>
+      <div class="item"><span class="arrow">→</span><strong>Status + Dashboard</strong> — state machine, events, timeline, dashboard and next-action logic</div>
+      <div class="item"><span class="arrow">→</span><strong>Demo Reliability</strong> — seeded lifecycle states and deterministic failure/retry behavior</div>
+    </div>
+  </div>
+  <div class="shared"><b class="a">Track A</b> &nbsp;↔&nbsp; shared: contracts · database baseline · API conventions · E2E tests · integration &nbsp;↔&nbsp; <b class="b">Track B</b></div>
+</section>
+
+<section class="section" id="handoff">
+  <h2 class="section-title">The One Critical Handoff</h2>
+  <div class="flow">
+    <div class="flowline">
+      <div class="node a">Citizen Query</div><div class="arrowline">→</div>
+      <div class="node a">Suitability</div><div class="arrowline">→</div>
+      <div class="node a">Jurisdiction</div><div class="arrowline">→</div>
+      <div class="node a">Authority</div><div class="arrowline">→</div>
+      <div class="node a">Draft + Quality</div>
+    </div>
+    <div class="handoff">
+      <div class="small">PERSON 1 OUTPUT → PERSON 2 INPUT</div>
+      <strong>VALIDATED READY-TO-FILE RTI</strong>
+    </div>
+    <div class="flowline">
+      <div class="node b">Applicant</div><div class="arrowline">→</div>
+      <div class="node b">Documents</div><div class="arrowline">→</div>
+      <div class="node b">Payment</div><div class="arrowline">→</div>
+      <div class="node b">Review</div><div class="arrowline">→</div>
+      <div class="node b">Submit</div><div class="arrowline">→</div>
+      <div class="node b">Dashboard</div><div class="arrowline">→</div>
+      <div class="node b">Status + Next Action</div>
+    </div>
+  </div>
+  <div class="integration">
+    <h3>Integration boundary</h3>
+    <div class="code">Person 1: Ready-to-File object
+        ↓
+POST /api/v1/rtis
+        ↓
+Person 2: RTI creation service
+        ↓
+PostgreSQL
+        ↓
+Filing + lifecycle</div>
+  </div>
+</section>
+
+<section class="section" id="phases">
+  <h2 class="section-title">Step-by-Step Ownership</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Step</th><th>Person 1 — Smart RTI Creation</th><th>Person 2 — RTI Lifecycle</th><th>Integration / Dependency</th></tr></thead>
+      <tbody>
+<tr>
+<td class="phase"><div class="phase-num">Step 1</div><div class="phase-sub">Foundation</div></td>
+<td class="tracka"><strong>Shared contracts</strong><br>Repo structure, PostgreSQL schema, FastAPI + React skeleton, API/error conventions, Ready-to-File contract</td>
+<td class="trackb"><strong>Shared contracts</strong><br>Same foundation; database migration baseline, shared types, Docker, demo scenarios</td>
+<td>Both agree on the Ready-to-File object and API boundary before the two tracks diverge.</td>
+</tr><tr>
+<td class="phase"><div class="phase-num">Step 2</div><div class="phase-sub">Smart RTI Creation</div></td>
+<td class="tracka"><strong>Intent + Routing</strong><br>Intent screen, RTI suitability, Central/State jurisdiction, deterministic rules, mock API responses</td>
+<td class="trackb"><strong>Lifecycle Skeleton</strong><br>Build filing flow against a mocked Ready-to-File object: applicant details → documents → review</td>
+<td>Both work independently. Person 2 does NOT wait for Person 1; the Ready-to-File object is mocked.</td>
+</tr><tr>
+<td class="phase"><div class="phase-num">Step 3</div><div class="phase-sub">Authority + Filing</div></td>
+<td class="tracka"><strong>Authority Finder</strong><br>Curated authority dataset, matching service, recommendation + explanation, manual override</td>
+<td class="trackb"><strong>Payment + Submission</strong><br>Mock payment, payment failure/retry, submission service, registration-number generation</td>
+<td>Person 1&#x27;s authority output feeds the draft pipeline; Person 2 continues using the fixed mock contract.</td>
+</tr><tr>
+<td class="phase"><div class="phase-num">Step 4</div><div class="phase-sub">Draft + Lifecycle</div></td>
+<td class="tracka"><strong>Draft + Quality</strong><br>AI draft generation, editing, regeneration/fallback, character limit, specificity and readiness checks</td>
+<td class="trackb"><strong>Status + Dashboard</strong><br>RTI record, status state machine, status events, dashboard, timeline, next-action logic</td>
+<td>First real integration: Person 1&#x27;s validated Ready-to-File object is passed into Person 2&#x27;s RTI creation API.</td>
+</tr><tr>
+<td class="phase"><div class="phase-num">Step 5</div><div class="phase-sub">Complete Journey</div></td>
+<td class="tracka"><strong>Ready-to-File</strong><br>Final producer flow: query → suitability → jurisdiction → authority → draft → validation → Ready-to-File</td>
+<td class="trackb"><strong>Complete Filing</strong><br>Final consumer flow: Ready-to-File → applicant → documents → payment → review → submit → dashboard</td>
+<td>End-to-end flow must work without manually moving data between the two applications.</td>
+</tr><tr>
+<td class="phase"><div class="phase-num">Step 6</div><div class="phase-sub">Hardening</div></td>
+<td class="tracka"><strong>Reliability</strong><br>AI fallback, ambiguous requests, unknown authority, validation edge cases, UI error/loading states</td>
+<td class="trackb"><strong>Reliability</strong><br>Payment failure, document failure, submission failure, status edge cases, database consistency</td>
+<td>Joint E2E testing. Fix contract mismatches and integration bugs; do not redesign the architecture.</td>
+</tr><tr>
+<td class="phase"><div class="phase-num">Step 7</div><div class="phase-sub">Demo Ready</div></td>
+<td class="tracka"><strong>Demo Experience</strong><br>Polish the intent → authority → draft → quality journey and prepare deterministic demo inputs</td>
+<td class="trackb"><strong>Demo Experience</strong><br>Polish filing → confirmation → dashboard → timeline → next-action journey and seed demo state</td>
+<td>Final integrated build is frozen. Only bugs, reliability and presentation-critical fixes remain.</td>
+</tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="section" id="integration">
+  <h2 class="section-title">How the Tracks Integrate</h2>
+  <div class="integration">
+    <h3>1 · Freeze the shared contract</h3>
+    <ol>
+      <li>Agree on the Ready-to-File JSON structure.</li>
+      <li>Create the matching Pydantic model and TypeScript type.</li>
+      <li>Agree on <code>POST /api/v1/rtis</code>, error format and RTI status values.</li>
+      <li>Agree on the database ownership boundary.</li>
+    </ol>
+  </div>
+  <div class="integration">
+    <h3>2 · Build independently with mocks</h3>
+    <ol>
+      <li>Person 1 uses mock AI/authority responses while building the complete creation journey.</li>
+      <li>Person 2 uses a fixed Ready-to-File fixture while building the complete lifecycle.</li>
+      <li>Neither track should depend on unfinished code from the other person.</li>
+    </ol>
+  </div>
+  <div class="integration">
+    <h3>3 · Replace the boundary, not the internals</h3>
+    <ol>
+      <li>Person 1's final output is passed to <code>POST /api/v1/rtis</code>.</li>
+      <li>Person 2 persists the RTI and takes ownership of its lifecycle.</li>
+      <li>Person 2's frontend fetches the persisted RTI rather than depending on React state from Person 1.</li>
+      <li>Do not redesign either vertical slice during integration.</li>
+    </ol>
+  </div>
+  <div class="integration">
+    <h3>4 · Joint end-to-end verification</h3>
+    <ol>
+      <li>Run the happy path from citizen query to dashboard.</li>
+      <li>Run wrong-jurisdiction and poor-request scenarios.</li>
+      <li>Run AI failure, unknown authority, payment failure and submission failure.</li>
+      <li>Fix contract mismatches first; only then polish UI.</li>
+    </ol>
+  </div>
+</section>
+
+<section class="section" id="final">
+  <h2 class="section-title">Final Build Flow</h2>
+  <div class="flow">
+    <div class="flowline">
+      <div class="node">SHARED FOUNDATION</div><div class="arrowline">→</div>
+      <div class="node a">PERSON 1<br>Smart RTI Creation</div><div class="arrowline">→</div>
+      <div class="handoff" style="margin:0;min-width:190px"><div class="small">HANDOFF</div><strong>READY TO FILE</strong></div><div class="arrowline">→</div>
+      <div class="node b">PERSON 2<br>RTI Lifecycle</div><div class="arrowline">→</div>
+      <div class="node">COMPLETE MVP</div>
+    </div>
+  </div>
+  <div class="rules" style="margin-top:18px">
+    <div class="rule"><b>Person 1 owns</b><span>Intent → suitability → jurisdiction → authority → draft → validation → Ready-to-File.</span></div>
+    <div class="rule"><b>Person 2 owns</b><span>Ready-to-File → applicant → documents → payment → submission → dashboard → status.</span></div>
+    <div class="rule"><b>Shared</b><span>Contracts, foundation, integration, E2E testing, deployment and demo hardening.</span></div>
+    <div class="rule"><b>Do not do</b><span>Do not split ownership by frontend/backend or create cross-track dependencies unnecessarily.</span></div>
+  </div>
+</section>
+</main>
+</body>
+</html>
