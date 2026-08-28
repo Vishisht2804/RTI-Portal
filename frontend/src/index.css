@@ -72,90 +72,123 @@
 }
 
 /* ───────────────────────────────────────────────────────────────────────────
-   Dark mode
-   Toggled by adding `.dark` on <html> (see src/lib/theme.ts + ThemeToggle).
-   The app uses hardcoded slate/white utilities everywhere, so instead of
-   sprinkling `dark:` variants across every page we retint the small set of
-   surface/text/border utilities and the shared component classes here.
+   Dark mode  (light theme is untouched — every rule below is scoped to html.dark)
+   Toggled by `.dark` on <html> (src/lib/theme.ts + ThemeToggle). The app uses
+   hardcoded slate/white utilities, so we retint the surface / text / border
+   utilities and the @apply-baked component classes here rather than adding
+   `dark:` variants across every page.
    ─────────────────────────────────────────────────────────────────────────── */
 html.dark {
   color-scheme: dark;
+
+  --d-bg:        #0a0f1a;  /* page */
+  --d-surface:   #141b2d;  /* cards, header, panels */
+  --d-surface-2: #1c2438;  /* insets, code blocks */
+  --d-surface-3: #2a3550;  /* chips, future step dots */
+  --d-border:    #2b3854;  /* card / divider borders */
+  --d-text:      #eef2f8;  /* headings / primary text */
+  --d-text-2:    #b4bfd0;  /* body */
+  --d-text-3:    #8b97ab;  /* secondary */
+  --d-text-4:    #66738a;  /* faint / captions */
+  --d-accent:    #7db2ff;  /* primary accent text + icons */
 }
+
 html.dark body {
-  background-color: #0b1220;
-  color: #e2e8f0;
+  background-color: var(--d-bg);
+  color: var(--d-text-2);
 }
-html.dark ::selection { background: #1e3a8a; }
-html.dark ::-webkit-scrollbar-track { background: #0f172a; }
-html.dark ::-webkit-scrollbar-thumb { background: #334155; }
+html.dark ::selection { background: rgba(37, 99, 235, 0.45); }
+html.dark ::-webkit-scrollbar-track { background: #0e1524; }
+html.dark ::-webkit-scrollbar-thumb { background: #33405c; border-radius: 99px; }
 
 @layer utilities {
   /* Surfaces */
-  html.dark .bg-white      { background-color: #131c2e !important; }
-  html.dark .bg-slate-50   { background-color: #0b1220 !important; }
-  html.dark .bg-slate-100  { background-color: #1e293b !important; }
-  html.dark .bg-slate-200  { background-color: #334155 !important; }
-  html.dark .bg-primary-50 { background-color: rgba(37, 99, 235, 0.18) !important; }
+  html.dark .bg-white      { background-color: var(--d-surface) !important; }
+  html.dark .bg-slate-50   { background-color: var(--d-bg) !important; }
+  html.dark .bg-slate-100  { background-color: var(--d-surface-2) !important; }
+  html.dark .bg-slate-200  { background-color: var(--d-surface-3) !important; }
+  html.dark .bg-primary-50 { background-color: rgba(59, 130, 246, 0.16) !important; }
+  html.dark .bg-primary-100 { background-color: rgba(59, 130, 246, 0.22) !important; }
+  html.dark .bg-emerald-100 { background-color: rgba(16, 185, 129, 0.20) !important; }
 
   /* Soft tint cards (verdicts, notices, warnings) */
-  html.dark .bg-emerald-50 { background-color: rgba(16, 185, 129, 0.12) !important; }
-  html.dark .bg-red-50     { background-color: rgba(239, 68, 68, 0.12)  !important; }
-  html.dark .bg-orange-50  { background-color: rgba(249, 115, 22, 0.12) !important; }
-  html.dark .bg-amber-50   { background-color: rgba(245, 158, 11, 0.12) !important; }
-  html.dark .bg-blue-50    { background-color: rgba(59, 130, 246, 0.12) !important; }
+  html.dark .bg-emerald-50 { background-color: rgba(16, 185, 129, 0.14) !important; }
+  html.dark .bg-red-50     { background-color: rgba(239, 68, 68, 0.14)  !important; }
+  html.dark .bg-orange-50  { background-color: rgba(249, 115, 22, 0.14) !important; }
+  html.dark .bg-amber-50   { background-color: rgba(245, 158, 11, 0.13) !important; }
+  html.dark .bg-blue-50    { background-color: rgba(59, 130, 246, 0.14) !important; }
 
   /* Text */
+  html.dark .text-slate-900,
   html.dark .text-slate-800,
-  html.dark .text-slate-700 { color: #e2e8f0 !important; }
-  html.dark .text-slate-600,
-  html.dark .text-slate-500 { color: #94a3b8 !important; }
-  html.dark .text-slate-400 { color: #64748b !important; }
+  html.dark .text-slate-700 { color: var(--d-text) !important; }
+  html.dark .text-slate-600 { color: var(--d-text-2) !important; }
+  html.dark .text-slate-500 { color: var(--d-text-3) !important; }
+  html.dark .text-slate-400 { color: var(--d-text-4) !important; }
+  html.dark .text-slate-300 { color: #c3cddd !important; }
   html.dark .text-primary-900,
   html.dark .text-primary-800,
-  html.dark .text-primary-700 { color: #93c5fd !important; }
-  html.dark .text-emerald-800, html.dark .text-emerald-700 { color: #6ee7b7 !important; }
-  html.dark .text-orange-800,  html.dark .text-orange-700  { color: #fdba74 !important; }
-  html.dark .text-red-700,     html.dark .text-red-600     { color: #fca5a5 !important; }
-  html.dark .text-amber-800,   html.dark .text-amber-700   { color: #fcd34d !important; }
-  html.dark .text-blue-800,    html.dark .text-blue-700    { color: #93c5fd !important; }
+  html.dark .text-primary-700,
+  html.dark .text-primary-600 { color: var(--d-accent) !important; }
+  html.dark .text-emerald-800, html.dark .text-emerald-700, html.dark .text-emerald-600, html.dark .text-emerald-500 { color: #5fdca4 !important; }
+  html.dark .text-orange-800,  html.dark .text-orange-700,  html.dark .text-orange-600,  html.dark .text-orange-500, html.dark .text-orange-400 { color: #f7a866 !important; }
+  html.dark .text-red-700,     html.dark .text-red-600,     html.dark .text-red-500 { color: #f98a8a !important; }
+  html.dark .text-amber-900,   html.dark .text-amber-800,   html.dark .text-amber-700,   html.dark .text-amber-600 { color: #f0c674 !important; }
+  html.dark .text-blue-800,    html.dark .text-blue-700,    html.dark .text-blue-500 { color: var(--d-accent) !important; }
 
   /* Borders */
   html.dark .border-slate-100,
-  html.dark .border-slate-200 { border-color: #24324a !important; }
-  html.dark .border-emerald-200 { border-color: rgba(16, 185, 129, 0.35) !important; }
-  html.dark .border-red-200     { border-color: rgba(239, 68, 68, 0.35)  !important; }
-  html.dark .border-orange-200  { border-color: rgba(249, 115, 22, 0.35) !important; }
-  html.dark .border-amber-200   { border-color: rgba(245, 158, 11, 0.35) !important; }
+  html.dark .border-slate-200 { border-color: var(--d-border) !important; }
+  html.dark .border-slate-300 { border-color: #3c4a6e !important; }
+  html.dark .border-emerald-200, html.dark .border-emerald-300 { border-color: rgba(16, 185, 129, 0.40) !important; }
+  html.dark .border-red-200     { border-color: rgba(239, 68, 68, 0.40)  !important; }
+  html.dark .border-orange-200, html.dark .border-orange-300  { border-color: rgba(249, 115, 22, 0.40) !important; }
+  html.dark .border-amber-200,  html.dark .border-amber-300   { border-color: rgba(245, 158, 11, 0.40) !important; }
   html.dark .border-blue-100,
-  html.dark .border-blue-200    { border-color: rgba(59, 130, 246, 0.35) !important; }
+  html.dark .border-blue-200    { border-color: rgba(59, 130, 246, 0.40) !important; }
 
   /* Hovers that assume a light ground */
-  html.dark .hover\:bg-slate-50:hover  { background-color: #1e293b !important; }
-  html.dark .hover\:bg-blue-50:hover   { background-color: rgba(59, 130, 246, 0.16) !important; }
-  html.dark .hover\:bg-primary-50:hover { background-color: rgba(37, 99, 235, 0.22) !important; }
+  html.dark .hover\:bg-slate-50:hover   { background-color: var(--d-surface-2) !important; }
+  html.dark .hover\:bg-blue-50:hover    { background-color: rgba(59, 130, 246, 0.18) !important; }
+  html.dark .hover\:bg-primary-50:hover { background-color: rgba(59, 130, 246, 0.20) !important; }
+
+  /* Elevation — flat shadows read as nothing on a near-black ground */
+  html.dark .shadow-sm,
+  html.dark .shadow,
+  html.dark .shadow-md,
+  html.dark .shadow-lg,
+  html.dark .shadow-xl,
+  html.dark .hover\:shadow-md:hover {
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 8px 24px -12px rgba(0, 0, 0, 0.6) !important;
+  }
 }
 
-/* Shared component classes bake their values via @apply, so retint explicitly */
+/* Component classes (values baked via @apply) */
 html.dark .card {
-  background-color: #131c2e;
-  border-color: #24324a;
+  background-color: var(--d-surface);
+  border-color: var(--d-border);
 }
+html.dark .btn-primary {
+  background-color: #2563eb;
+}
+html.dark .btn-primary:hover { background-color: #3b82f6; }
 html.dark .btn-secondary {
-  background-color: #1e293b;
-  color: #e2e8f0;
-  border-color: #334155;
+  background-color: var(--d-surface-2);
+  color: var(--d-text);
+  border-color: #34406a;
 }
-html.dark .btn-secondary:hover { background-color: #24324a; }
-html.dark .btn-ghost { color: #94a3b8; }
-html.dark .btn-ghost:hover { color: #e2e8f0; }
+html.dark .btn-secondary:hover { background-color: #252f47; }
+html.dark .btn-ghost { color: var(--d-text-3); }
+html.dark .btn-ghost:hover { color: var(--d-text); }
 html.dark .input-base {
-  background-color: #0f172a;
-  color: #e2e8f0;
-  border-color: #334155;
+  background-color: #0f1626;
+  color: var(--d-text);
+  border-color: #34406a;
 }
-html.dark .input-base::placeholder { color: #64748b; }
-html.dark .badge-green  { background-color: rgba(16,185,129,0.16); color: #6ee7b7; }
-html.dark .badge-orange { background-color: rgba(249,115,22,0.16); color: #fdba74; }
-html.dark .badge-red    { background-color: rgba(239,68,68,0.16);  color: #fca5a5; }
-html.dark .badge-blue   { background-color: rgba(59,130,246,0.16); color: #93c5fd; }
-html.dark .badge-slate  { background-color: #1e293b;               color: #cbd5e1; }
+html.dark .input-base::placeholder { color: var(--d-text-4); }
+html.dark .badge-green  { background-color: rgba(16,185,129,0.18); color: #6ee7b7; }
+html.dark .badge-orange { background-color: rgba(249,115,22,0.18); color: #fdba74; }
+html.dark .badge-red    { background-color: rgba(239,68,68,0.18);  color: #fca5a5; }
+html.dark .badge-blue   { background-color: rgba(59,130,246,0.18); color: #93c5fd; }
+html.dark .badge-slate  { background-color: var(--d-surface-3);    color: #cbd5e1; }
+

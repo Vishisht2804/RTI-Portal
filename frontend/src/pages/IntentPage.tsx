@@ -55,12 +55,6 @@ export default function IntentPage() {
           <span>Mock login OTP <span className="font-mono font-semibold">123456</span></span>
           <span>₹10 payment auto-approves</span>
           <span>Every action is labelled <span className="font-semibold">SIMULATED</span> — nothing is filed</span>
-          <Link
-            to="/filing/1/applicant"
-            className="ml-auto font-semibold text-amber-900 inline-flex items-center gap-1 hover:underline"
-          >
-            <FileTextIcon size={12} /> Skip intake — jump to filing
-          </Link>
         </div>
       </div>
 
@@ -204,6 +198,16 @@ export default function IntentPage() {
                 </div>
               </div>
             </div>
+
+            <p className="mt-3 text-center text-xs text-slate-500">
+              Just reviewing?{' '}
+              <Link
+                to="/filing/1/applicant"
+                className="font-semibold text-primary-700 hover:underline inline-flex items-center gap-1"
+              >
+                <FileTextIcon size={12} /> Skip the intake and jump straight to filing
+              </Link>
+            </p>
           </div>
 
         </div>
