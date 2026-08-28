@@ -1,17 +1,20 @@
 /**
  * Track B — filing lifecycle screens.
  *
- * Migrated to Track A's design system (Tailwind + Track A component classes).
+ * Uses Track A's design system (Tailwind + shared component classes).
  * No trackb.css — uses: card, btn-primary, btn-secondary, input-base, badge-*
- * All functionality preserved; only JSX/classes changed.
  */
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, Navigate, Route, Routes, useNavigate, useParams } from "react-router-dom";
+import {
+  Link, Navigate, Route, Routes,
+  useNavigate, useParams, useLocation,
+} from "react-router-dom";
 import {
   Check, CheckCircle2, Circle, CreditCard, FileText,
   LayoutDashboard, RefreshCw, Send, Upload, AlertCircle,
-  ChevronRight, Clock, User,
+  ChevronRight, Clock, User, ArrowLeft, PlusCircle, SparklesIcon,
 } from "lucide-react";
+import { AppHeader } from "../components/common/AppHeader";
 
 const API_URL = "/api/v1";
 
@@ -50,6 +53,31 @@ const FILING_STEPS = [
   { id: 4, key: "review",    label: "Review"    },
 ] as const;
 
+type StepKey = typeof FILING_STEPS[number]["key"];
+
+// ─── Human-readable status labels ────────────────────────────────────────────
+
+const STATUS_LABEL: Record<string, string> = {
+  submitted:        "Submitted",
+  payment_failed:   "Payment Failed",
+  pending_payment:  "Awaiting Payment",
+  draft:            "Draft",
+  in_review:        "Under Review",
+  applicant_pending:"Applicant Pending",
+};
+
+const STATUS_BADGE: Record<string, string> = {
+  submitted:        "badge-green",
+  payment_failed:   "badge-red",
+  pending_payment:  "badge-orange",
+  draft:            "badge-slate",
+  in_review:        "badge-blue",
+};
+
+function humanStatus(raw: string) {
+  return STATUS_LABEL[raw] ?? raw.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 // ─── Shared: RTI data hook ────────────────────────────────────────────────────
 
 function useRti() {
@@ -67,87 +95,70 @@ function useRti() {
   return { rti, error, reload: load, rtiId: Number(rtiId) };
 }
 
-// ─── Shared: Filing header (Track A style) ────────────────────────────────────
+// ─── Shared: Filing stepper (clickable for completed steps) ───────────────────
 
-function FilingHeader() {
-  return (
-    <div className="w-full bg-white border-b border-slate-100 shadow-sm sticky top-0 z-10">
-      {/* Tricolour accent — matches Track A exactly */}
-      <div className="tricolour-bar" />
-
-      <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-        <Link to="/filing/dashboard" className="flex items-center gap-2 no-underline">
-          <div className="w-8 h-8 bg-primary-800 rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-sm">R</span>
-          </div>
-          <span className="font-bold text-primary-900 text-lg tracking-tight">RTI Navigator</span>
-          <span className="hidden sm:inline text-slate-400 text-xs ml-1">Filing Portal</span>
-        </Link>
-
-        <nav className="flex items-center gap-1">
-          <Link
-            to="/"
-            className="btn-ghost text-sm flex items-center gap-1.5"
-          >
-            New RTI
-          </Link>
-          <Link
-            to="/filing/dashboard"
-            className="btn-ghost text-sm flex items-center gap-1.5"
-          >
-            <LayoutDashboard size={14} /> Dashboard
-          </Link>
-        </nav>
-      </div>
-    </div>
-  );
-}
-
-// ─── Shared: Filing stepper ───────────────────────────────────────────────────
-
-function FilingStepper({ currentKey }: { currentKey: string }) {
+function FilingStepper({ currentKey, rtiId }: { currentKey: StepKey; rtiId?: number }) {
   const currentIdx = FILING_STEPS.findIndex((s) => s.key === currentKey);
+  const navigate = useNavigate();
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-4">
-      <div className="flex items-center">
-        {FILING_STEPS.map((step, idx) => {
-          const done   = idx < currentIdx;
-          const active = idx === currentIdx;
-          const future = idx > currentIdx;
-          return (
-            <div key={step.key} className="flex items-center flex-1 last:flex-none">
-              <div className="flex flex-col items-center min-w-[32px]">
-                <div
-                  className={[
-                    "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300",
-                    done   ? "bg-emerald-500 text-white shadow-md" : "",
-                    active ? "bg-primary-800 text-white shadow-md ring-4 ring-primary-100" : "",
-                    future ? "bg-slate-200 text-slate-500" : "",
-                  ].join(" ")}
-                >
-                  {done ? <Check size={14} /> : step.id}
-                </div>
-                <span
-                  className={[
-                    "mt-1 text-[10px] font-medium whitespace-nowrap",
-                    active ? "text-primary-700" : done ? "text-emerald-600" : "text-slate-400",
-                  ].join(" ")}
-                >
-                  {step.label}
-                </span>
+    <div className="w-full bg-white border-b border-slate-100">
+      <div className="max-w-5xl mx-auto px-4 pb-4 pt-3">
+        <div className="flex items-center">
+          {FILING_STEPS.map((step, idx) => {
+            const done   = idx < currentIdx;
+            const active = idx === currentIdx;
+            const future = idx > currentIdx;
+
+            const circle = (
+              <div
+                className={[
+                  "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300",
+                  done   ? "bg-emerald-500 text-white shadow-md" : "",
+                  active ? "bg-primary-800 text-white shadow-md ring-4 ring-primary-100" : "",
+                  future ? "bg-slate-200 text-slate-500" : "",
+                ].join(" ")}
+              >
+                {done ? <Check size={14} /> : step.id}
               </div>
-              {idx < FILING_STEPS.length - 1 && (
-                <div
-                  className={[
-                    "flex-1 h-0.5 mx-1 mb-4 rounded transition-all duration-300",
-                    done ? "bg-emerald-400" : "bg-slate-200",
-                  ].join(" ")}
-                />
-              )}
-            </div>
-          );
-        })}
+            );
+
+            return (
+              <div key={step.key} className="flex items-center flex-1 last:flex-none">
+                <div className="flex flex-col items-center min-w-[32px]">
+                  {/* Completed steps are clickable */}
+                  {done && rtiId ? (
+                    <button
+                      onClick={() => navigate(`/filing/${rtiId}/${step.key}`)}
+                      className="focus:outline-none cursor-pointer"
+                      title={`Go back to ${step.label}`}
+                    >
+                      {circle}
+                    </button>
+                  ) : (
+                    <div className={future ? "cursor-not-allowed" : ""}>{circle}</div>
+                  )}
+                  <span
+                    className={[
+                      "mt-1 text-[10px] font-medium whitespace-nowrap",
+                      active ? "text-primary-700" : done ? "text-emerald-600" : "text-slate-400",
+                    ].join(" ")}
+                  >
+                    {step.label}
+                  </span>
+                </div>
+                {idx < FILING_STEPS.length - 1 && (
+                  <div
+                    className={[
+                      "flex-1 h-0.5 mx-1 mb-4 rounded transition-all duration-300",
+                      done ? "bg-emerald-400" : "bg-slate-200",
+                    ].join(" ")}
+                  />
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -156,22 +167,15 @@ function FilingStepper({ currentKey }: { currentKey: string }) {
 // ─── Shared: Context info bar ─────────────────────────────────────────────────
 
 function ContextBar({ rti }: { rti: RtiDetail | null }) {
-  const statusColor = rti?.status === "submitted"
-    ? "badge-green"
-    : rti?.status === "payment_failed"
-    ? "badge-red"
-    : "badge-blue";
-
+  const badgeClass = STATUS_BADGE[rti?.status ?? ""] ?? "badge-slate";
   return (
     <div className="flex items-center flex-wrap gap-3 mb-6 pb-5 border-b border-slate-100">
       <div className="flex items-center gap-2 text-slate-600">
         <FileText size={16} className="text-primary-600 shrink-0" />
-        <span className="font-semibold text-slate-800">
-          {rti?.authority_name ?? "Loading…"}
-        </span>
+        <span className="font-semibold text-slate-800">{rti?.authority_name ?? "Loading…"}</span>
       </div>
       {rti?.status && (
-        <span className={`badge ${statusColor} capitalize`}>{rti.status.replace(/_/g, " ")}</span>
+        <span className={`badge ${badgeClass}`}>{humanStatus(rti.status)}</span>
       )}
       {rti?.registration_number && (
         <span className="badge badge-slate font-mono text-[11px]">{rti.registration_number}</span>
@@ -183,17 +187,18 @@ function ContextBar({ rti }: { rti: RtiDetail | null }) {
 // ─── Shared: Page shell ───────────────────────────────────────────────────────
 
 function PageShell({
-  eyebrow, title, stepKey, children,
+  eyebrow, title, stepKey, rtiId, children,
 }: {
   eyebrow: string;
   title: string;
-  stepKey?: string;
+  stepKey?: StepKey;
+  rtiId?: number;
   children: React.ReactNode;
 }) {
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
-      <FilingHeader />
-      {stepKey && <FilingStepper currentKey={stepKey} />}
+      <AppHeader />
+      {stepKey && <FilingStepper currentKey={stepKey} rtiId={rtiId} />}
 
       <div className="max-w-2xl w-full mx-auto px-4 py-10 animate-slide-up">
         <div className="mb-6">
@@ -202,6 +207,37 @@ function PageShell({
         </div>
         {children}
       </div>
+    </div>
+  );
+}
+
+// ─── Bottom nav helper ────────────────────────────────────────────────────────
+
+function BottomNav({
+  backLabel, backTo,
+  forwardLabel, onForward, forwardDisabled, forwardIcon,
+}: {
+  backLabel: string;
+  backTo: string;
+  forwardLabel: string;
+  onForward: () => void;
+  forwardDisabled?: boolean;
+  forwardIcon?: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between mt-6 pt-4 border-t border-slate-100">
+      <Link to={backTo} className="btn-secondary flex items-center gap-2">
+        <ArrowLeft size={15} /> {backLabel}
+      </Link>
+      <button
+        onClick={onForward}
+        disabled={forwardDisabled}
+        className="btn-primary flex items-center gap-2"
+      >
+        {forwardIcon ?? null}
+        {forwardLabel}
+        {!forwardIcon && <ChevronRight size={16} />}
+      </button>
     </div>
   );
 }
@@ -217,7 +253,7 @@ function Applicant() {
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
 
-  async function submit() {
+  async function sendOtp() {
     setLoading(true);
     try {
       await api(`/rtis/${rtiId}/applicant`, { method: "POST", body: form });
@@ -235,7 +271,7 @@ function Applicant() {
   }
 
   return (
-    <PageShell eyebrow="Filing · Step 1 of 4" title="Applicant Details" stepKey="applicant">
+    <PageShell eyebrow="Filing · Step 1 of 4" title="Applicant Details" stepKey="applicant" rtiId={rtiId}>
       <div className="card mb-4">
         <ContextBar rti={rti} />
 
@@ -261,7 +297,7 @@ function Applicant() {
           ))}
         </div>
 
-        <button onClick={submit} disabled={loading} className="btn-primary flex items-center gap-2">
+        <button onClick={sendOtp} disabled={loading} className="btn-primary flex items-center gap-2">
           {loading ? "Sending…" : <><User size={15} /> Send demo OTP</>}
         </button>
 
@@ -273,7 +309,7 @@ function Applicant() {
       </div>
 
       {otpMessage && (
-        <div className="card">
+        <div className="card mb-4">
           <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
             Enter OTP
           </label>
@@ -291,6 +327,20 @@ function Applicant() {
           </div>
         </div>
       )}
+
+      {/* Bottom nav */}
+      <div className="flex items-center justify-between mt-6 pt-4 border-t border-slate-100">
+        <Link to="/filing/dashboard" className="btn-secondary flex items-center gap-2">
+          <ArrowLeft size={15} /> Dashboard
+        </Link>
+        <button
+          onClick={sendOtp}
+          disabled={loading}
+          className="btn-primary flex items-center gap-2"
+        >
+          {loading ? "Sending…" : "Send OTP"} <ChevronRight size={16} />
+        </button>
+      </div>
     </PageShell>
   );
 }
@@ -317,7 +367,7 @@ function Documents() {
   const docs = rti?.documents ?? [];
 
   return (
-    <PageShell eyebrow="Filing · Step 2 of 4" title="Documents" stepKey="documents">
+    <PageShell eyebrow="Filing · Step 2 of 4" title="Documents" stepKey="documents" rtiId={rtiId}>
       <div className="card mb-4">
         <ContextBar rti={rti} />
 
@@ -346,14 +396,12 @@ function Documents() {
         )}
       </div>
 
-      <div className="flex justify-end">
-        <button
-          onClick={() => navigate(`/filing/${rtiId}/payment`)}
-          className="btn-primary flex items-center gap-2"
-        >
-          Continue <ChevronRight size={16} />
-        </button>
-      </div>
+      <BottomNav
+        backLabel="Applicant"
+        backTo={`/filing/${rtiId}/applicant`}
+        forwardLabel="Continue"
+        onForward={() => navigate(`/filing/${rtiId}/payment`)}
+      />
     </PageShell>
   );
 }
@@ -375,7 +423,7 @@ function Payment() {
   }
 
   return (
-    <PageShell eyebrow="Filing · Step 3 of 4" title="Payment" stepKey="payment">
+    <PageShell eyebrow="Filing · Step 3 of 4" title="Payment" stepKey="payment" rtiId={rtiId}>
       <div className="card mb-4">
         <ContextBar rti={rti} />
 
@@ -410,6 +458,13 @@ function Payment() {
           </button>
         </div>
       </div>
+
+      <BottomNav
+        backLabel="Documents"
+        backTo={`/filing/${rtiId}/documents`}
+        forwardLabel="Continue"
+        onForward={() => navigate(`/filing/${rtiId}/review`)}
+      />
     </PageShell>
   );
 }
@@ -430,7 +485,7 @@ function Review() {
   }
 
   return (
-    <PageShell eyebrow="Filing · Step 4 of 4" title="Review &amp; Submit" stepKey="review">
+    <PageShell eyebrow="Filing · Step 4 of 4" title="Review & Submit" stepKey="review" rtiId={rtiId}>
       <div className="card mb-4">
         <ContextBar rti={rti} />
 
@@ -449,16 +504,16 @@ function Review() {
             This is a simulated submission for the hackathon demo.
           </p>
         </div>
-
-        <button
-          onClick={submit}
-          disabled={submitting || !rti}
-          className="btn-primary w-full flex items-center justify-center gap-2 text-base"
-        >
-          <Send size={16} />
-          {submitting ? "Submitting…" : "Simulate submission"}
-        </button>
       </div>
+
+      <BottomNav
+        backLabel="Payment"
+        backTo={`/filing/${rtiId}/payment`}
+        forwardLabel={submitting ? "Submitting…" : "Submit RTI"}
+        onForward={submit}
+        forwardDisabled={submitting || !rti}
+        forwardIcon={<Send size={15} />}
+      />
     </PageShell>
   );
 }
@@ -494,10 +549,10 @@ function Submitted() {
 
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Link to="/filing/dashboard" className="btn-primary flex items-center justify-center gap-2">
-            <LayoutDashboard size={15} /> Go to dashboard
+            <LayoutDashboard size={15} /> Go to Dashboard
           </Link>
           <Link to="/" className="btn-secondary flex items-center justify-center gap-2">
-            File another RTI
+            File Another RTI
           </Link>
         </div>
       </div>
@@ -507,20 +562,12 @@ function Submitted() {
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
-const STATUS_BADGE: Record<string, string> = {
-  submitted:       "badge-green",
-  payment_failed:  "badge-red",
-  pending_payment: "badge-orange",
-  draft:           "badge-slate",
-  in_review:       "badge-blue",
-};
-
 function Dashboard() {
   const [rtis, setRtis] = useState<any[]>([]);
   const [resetting, setResetting] = useState(false);
   const navigate = useNavigate();
 
-  useEffect(() => { api("/rtis").then(setRtis); }, []);
+  useEffect(() => { api("/rtis").then(setRtis).catch(() => {}); }, []);
 
   async function reset() {
     setResetting(true);
@@ -532,10 +579,12 @@ function Dashboard() {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
-      <FilingHeader />
+      <AppHeader />
 
       <div className="max-w-3xl w-full mx-auto px-4 py-10 animate-slide-up">
-        <div className="flex items-center justify-between mb-6">
+
+        {/* Heading + demo reset (de-emphasized) */}
+        <div className="flex items-start justify-between mb-5">
           <div>
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1">Citizen RTIs</p>
             <h1 className="text-2xl font-bold text-slate-800">Dashboard</h1>
@@ -543,57 +592,78 @@ function Dashboard() {
           <button
             onClick={reset}
             disabled={resetting}
-            className="btn-secondary flex items-center gap-2 text-sm"
+            className="text-xs text-slate-400 hover:text-slate-600 flex items-center gap-1.5 mt-1 px-3 py-1.5 rounded-lg border border-slate-200 hover:border-slate-300 transition-colors"
           >
-            <RefreshCw size={14} className={resetting ? "animate-spin" : ""} />
+            <RefreshCw size={11} className={resetting ? "animate-spin" : ""} />
             {resetting ? "Resetting…" : "Demo reset"}
           </button>
         </div>
 
+        {/* Primary CTA */}
+        <div className="card mb-8 bg-gradient-to-br from-primary-800 to-primary-700 border-primary-700 text-white">
+          <p className="text-xs font-semibold uppercase tracking-widest text-blue-200 mb-2">Start here</p>
+          <h2 className="text-xl font-bold mb-1">File a New RTI</h2>
+          <p className="text-blue-100 text-sm mb-4 leading-relaxed">
+            Describe what you need and let RTI Navigator prepare the application.
+          </p>
+          <Link
+            to="/"
+            className="inline-flex items-center gap-2 bg-white text-primary-800 font-semibold px-5 py-2.5 rounded-xl hover:bg-blue-50 transition-colors text-sm"
+          >
+            Start New RTI <ChevronRight size={16} />
+          </Link>
+        </div>
+
+        {/* RTI list */}
         {rtis.length === 0 ? (
           <div className="card text-center py-12">
             <FileText size={40} className="text-slate-300 mx-auto mb-3" />
             <p className="text-slate-500 font-medium">No RTIs yet</p>
-            <p className="text-sm text-slate-400 mt-1 mb-5">File your first RTI using Track A</p>
-            <Link to="/" className="btn-primary inline-flex items-center gap-2">
-              Start new RTI
-            </Link>
+            <p className="text-sm text-slate-400 mt-1 mb-5">File your first RTI using the button above</p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {rtis.map((rti) => {
-              const badgeClass = STATUS_BADGE[rti.status] ?? "badge-slate";
-              return (
-                <div
-                  key={rti.id}
-                  onClick={() => navigate(`/filing/rtis/${rti.id}`)}
-                  className="card hover:shadow-md hover:border-primary-100 cursor-pointer transition-all duration-200 active:scale-[0.99]"
-                >
-                  <div className="flex items-start justify-between gap-3 mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className={`badge ${badgeClass} capitalize`}>
-                        {(rti.status ?? "draft").replace(/_/g, " ")}
-                      </span>
+          <>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Your Applications</p>
+            <div className="space-y-3">
+              {rtis.map((rti) => {
+                const badgeClass = STATUS_BADGE[rti.status] ?? "badge-slate";
+                return (
+                  <div
+                    key={rti.id}
+                    onClick={() => navigate(`/filing/rtis/${rti.id}`)}
+                    className="card hover:shadow-md hover:border-primary-100 cursor-pointer transition-all duration-200 active:scale-[0.99]"
+                  >
+                    {/* Status + reg number */}
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className={`badge ${badgeClass}`}>{humanStatus(rti.status ?? "draft")}</span>
                       {rti.registration_number && (
                         <span className="badge badge-slate font-mono text-[10px]">
                           {rti.registration_number}
                         </span>
                       )}
+                      <ChevronRight size={14} className="text-slate-300 ml-auto shrink-0" />
                     </div>
-                    <ChevronRight size={16} className="text-slate-300 shrink-0 mt-0.5" />
-                  </div>
 
-                  <p className="font-semibold text-slate-800 mb-1">{rti.authority_name}</p>
-                  <p className="text-sm text-slate-500 line-clamp-2 mb-3">{rti.subject}</p>
+                    {/* Authority */}
+                    <p className="font-semibold text-slate-800 mb-0.5">{rti.authority_name}</p>
 
-                  <div className="flex items-center gap-1.5 text-xs text-slate-400">
-                    <Clock size={11} />
-                    <span className="capitalize">{rti.next_action?.title ?? "—"}</span>
+                    {/* Subject */}
+                    {rti.subject && (
+                      <p className="text-sm text-slate-500 line-clamp-2 mb-2">{rti.subject}</p>
+                    )}
+
+                    {/* Next action */}
+                    {rti.next_action?.title && (
+                      <div className="flex items-center gap-1.5 text-xs text-primary-600 font-medium mt-1">
+                        <Clock size={11} />
+                        Next: {rti.next_action.title}
+                      </div>
+                    )}
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          </>
         )}
       </div>
     </div>
@@ -608,9 +678,13 @@ function Detail() {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
-      <FilingHeader />
+      <AppHeader />
 
       <div className="max-w-5xl w-full mx-auto px-4 py-10 animate-slide-up">
+        <Link to="/filing/dashboard" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 mb-6">
+          <ArrowLeft size={14} /> Dashboard
+        </Link>
+
         <div className="mb-6">
           <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1">
             {rti?.registration_number ?? "Case detail"}
@@ -672,23 +746,20 @@ function Detail() {
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-5">
               Status Timeline
             </p>
-
             {timeline.length === 0 ? (
               <p className="text-sm text-slate-400 italic">No events yet.</p>
             ) : (
               <div className="relative pl-6 border-l-2 border-slate-100 space-y-5">
-                {timeline.map((event, idx) => (
+                {timeline.map((event) => (
                   <div key={event.id} className="relative">
-                    {/* Dot on timeline */}
                     <div className="absolute -left-[25px] w-5 h-5 rounded-full bg-emerald-500 border-2 border-white shadow flex items-center justify-center">
                       <Check size={10} className="text-white" />
                     </div>
-
                     <p className="text-sm font-semibold text-slate-800 mb-0.5">{event.title}</p>
                     <p className="text-xs text-slate-500 leading-relaxed">{event.description}</p>
                     {event.status && (
                       <span className="badge badge-blue mt-1.5 capitalize text-[10px]">
-                        {event.status}
+                        {humanStatus(event.status)}
                       </span>
                     )}
                   </div>
