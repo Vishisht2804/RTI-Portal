@@ -4,7 +4,8 @@ Track A code reads UPPER_CASE attributes (settings.DATABASE_URL, settings.OPENAI
 Track B code reads lower_case attributes (settings.database_url, settings.demo_otp).
 Both are served here: lower_case fields are canonical, UPPER_CASE are read-only aliases.
 """
-from pydantic import field_validator
+
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,22 +17,59 @@ def _default_db_url(raw: str) -> str:
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     # --- shared ---
-    database_url: str = "postgresql+psycopg://rti:rti@localhost:5432/rti_navigator"
-    cors_origins: list[str] = ["http://localhost:5173", "http://localhost:3000"]
+    database_url: str = Field(
+        default="postgresql+psycopg://rti:rti@localhost:5432/rti_navigator",
+        validation_alias="DATABASE_URL",
+    )
+
+    cors_origins: list[str] = Field(
+        default=["http://localhost:5173", "http://localhost:3000"],
+        validation_alias="CORS_ORIGINS",
+    )
 
     # --- Track A (AI intake) ---
-    openai_api_key: str = ""
-    llm_model: str = "gpt-4o-mini"
-    demo_user_id: int = 1
-    debug: bool = False
+    openai_api_key: str = Field(
+        default="",
+        validation_alias="OPENAI_API_KEY",
+    )
+
+    llm_model: str = Field(
+        default="gpt-4o-mini",
+        validation_alias="LLM_MODEL",
+    )
+
+    demo_user_id: int = Field(
+        default=1,
+        validation_alias="DEMO_USER_ID",
+    )
+
+    debug: bool = Field(
+        default=False,
+        validation_alias="DEBUG",
+    )
 
     # --- Track B (filing lifecycle) ---
-    demo_otp: str = "123456"
-    payment_amount: int = 10
-    demo_mode: bool = True
+    demo_otp: str = Field(
+        default="123456",
+        validation_alias="DEMO_OTP",
+    )
+
+    payment_amount: int = Field(
+        default=10,
+        validation_alias="PAYMENT_AMOUNT",
+    )
+
+    demo_mode: bool = Field(
+        default=True,
+        validation_alias="DEMO_MODE",
+    )
 
     @field_validator("cors_origins", mode="before")
     @classmethod
@@ -44,7 +82,11 @@ class Settings(BaseSettings):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        object.__setattr__(self, "database_url", _default_db_url(self.database_url))
+        object.__setattr__(
+            self,
+            "database_url",
+            _default_db_url(self.database_url),
+        )
 
     # UPPER_CASE aliases used by Track A modules
     @property
