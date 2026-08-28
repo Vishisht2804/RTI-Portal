@@ -18,7 +18,7 @@ import type {
 } from '../types/rti'
 import {
   DEMO_OTP, PAYMENT_AMOUNT,
-  addStatusEvent, findRti, nextId, registrationNumber, resetState,
+  addStatusEvent, findRti, nextId, registrationNumber, resetState, seedReadyToFileRti,
   serializeRtiDetail, serializeRtiListItem, transition, withState,
   type DemoRti, type RtiStatus,
 } from './demo/state'
@@ -367,6 +367,11 @@ export async function mockRequest(path: string, options: MockRequestOptions = {}
   }
   if (path === '/demo/reset' || path === '/demo') {
     return resetDemo()
+  }
+  // Add a fresh Ready-to-File RTI so "file another" / "jump to filing" keeps
+  // working after the previous RTI is submitted — no Demo reset required.
+  if (path === '/demo/rti' && method === 'POST') {
+    return { rti_id: seedReadyToFileRti(), status: 'READY_TO_FILE' }
   }
 
   const m = path.match(/^\/rtis\/(\d+)(\/[a-z/]+)?$/)

@@ -259,21 +259,42 @@ function Applicant() {
   const [otpMessage, setOtpMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  const [actionError, setActionError] = useState("");
+  const healing = React.useRef(false);
+
+  // Self-heal: if this RTI has already been filed (e.g. "File another" / "Jump
+  // to filing" landed on the completed demo RTI), spin up a fresh Ready-to-File
+  // RTI and redirect — so the flow never dead-ends without a Demo reset.
+  useEffect(() => {
+    if (!DEMO_MODE || !rti || healing.current) return;
+    if (rti.status !== "READY_TO_FILE") {
+      healing.current = true;
+      api("/demo/rti", { method: "POST" })
+        .then((r) => navigate(`/filing/${r.rti_id}/applicant`, { replace: true }))
+        .catch(() => { healing.current = false; });
+    }
+  }, [rti, navigate]);
 
   async function sendOtp() {
+    setActionError("");
     setLoading(true);
     try {
       await api(`/rtis/${rtiId}/applicant`, { method: "POST", body: form });
       const r = await api(`/rtis/${rtiId}/otp/send`, { method: "POST" });
       setOtpMessage(r.message);
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : String(e));
     } finally { setLoading(false); }
   }
 
   async function verify() {
+    setActionError("");
     setVerifying(true);
     try {
       await api(`/rtis/${rtiId}/otp/verify`, { method: "POST", body: { otp } });
       navigate(`/filing/${rtiId}/documents`);
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : String(e));
     } finally { setVerifying(false); }
   }
 
@@ -286,9 +307,9 @@ function Applicant() {
           Demo OTP: <span className="font-mono">123456</span> — enter it below. No SMS is sent.
         </SimulatedBanner>
 
-        {error && (
+        {(error || actionError) && (
           <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700 flex items-center gap-2 mb-4">
-            <AlertCircle size={15} /> {error}
+            <AlertCircle size={15} /> {actionError || error}
           </div>
         )}
 
@@ -588,10 +609,19 @@ function Dashboard() {
     } finally { setResetting(false); }
   }
 
-  function jumpToFiling() {
-    const target =
-      rtis.find((r) => r.status === "READY_TO_FILE") ?? rtis[0];
-    navigate(`/filing/${target?.id ?? 1}/applicant`);
+  async function jumpToFiling() {
+    const ready = rtis.find((r) => r.status === "READY_TO_FILE");
+    if (ready) { navigate(`/filing/${ready.id}/applicant`); return; }
+    // Nothing fileable left — mint a fresh Ready-to-File RTI (demo) so the
+    // filing flow stays usable without a Demo reset.
+    if (DEMO_MODE) {
+      try {
+        const r = await api("/demo/rti", { method: "POST" });
+        navigate(`/filing/${r.rti_id}/applicant`);
+        return;
+      } catch { /* fall through */ }
+    }
+    navigate(`/filing/${rtis[0]?.id ?? 1}/applicant`);
   }
 
   return (

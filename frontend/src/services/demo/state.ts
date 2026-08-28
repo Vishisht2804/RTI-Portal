@@ -226,6 +226,19 @@ export function initialState(): DemoState {
   return { seq: 2, rtis: [seededRti(1)] }
 }
 
+/**
+ * Add a fresh Ready-to-File demo RTI and return its id. Lets the user file
+ * another RTI (or "jump to filing") after the seeded one has been submitted,
+ * without needing a full Demo reset.
+ */
+export function seedReadyToFileRti(): number {
+  return withState((state) => {
+    const id = nextId(state)
+    state.rtis.unshift(seededRti(id))
+    return id
+  })
+}
+
 export function loadState(): DemoState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
