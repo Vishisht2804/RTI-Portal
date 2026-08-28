@@ -6,6 +6,8 @@ import type {
   DraftValidateRequest, DraftValidateResponse,
   ReadyToFileObject, RTICreateResponse,
 } from '../types/rti'
+import { DEMO_MODE } from './demo/config'
+import * as mockApi from './mockApi'
 
 const api = axios.create({
   baseURL: '/api/v1',
@@ -22,21 +24,33 @@ api.interceptors.response.use(
 )
 
 // ─── P1 endpoints ─────────────────────────────────────────────────────────────
+//
+// Each function keeps the exact same signature. When DEMO_MODE is on it delegates
+// to the localStorage-backed mock in ./mockApi; otherwise it hits FastAPI as before.
 
 export const analyzeIntent = (req: IntentRequest): Promise<IntentResponse> =>
-  api.post<IntentResponse>('/intent/analyze', req).then((r) => r.data)
+  DEMO_MODE
+    ? mockApi.analyzeIntent(req)
+    : api.post<IntentResponse>('/intent/analyze', req).then((r) => r.data)
 
 export const recommendAuthority = (req: AuthorityRecommendRequest): Promise<AuthorityRecommendResponse> =>
-  api.post<AuthorityRecommendResponse>('/authorities/recommend', req).then((r) => r.data)
+  DEMO_MODE
+    ? mockApi.recommendAuthority(req)
+    : api.post<AuthorityRecommendResponse>('/authorities/recommend', req).then((r) => r.data)
 
 export const generateDraft = (req: DraftGenerateRequest): Promise<DraftGenerateResponse> =>
-  api.post<DraftGenerateResponse>('/drafts/generate', req).then((r) => r.data)
+  DEMO_MODE
+    ? mockApi.generateDraft(req)
+    : api.post<DraftGenerateResponse>('/drafts/generate', req).then((r) => r.data)
 
 export const validateDraft = (req: DraftValidateRequest): Promise<DraftValidateResponse> =>
-  api.post<DraftValidateResponse>('/drafts/validate', req).then((r) => r.data)
+  DEMO_MODE
+    ? mockApi.validateDraft(req)
+    : api.post<DraftValidateResponse>('/drafts/validate', req).then((r) => r.data)
 
 // ─── P2 handoff (P1 creates the object, P2 persists it) ─────────────────────
 
 export const createRTI = (body: ReadyToFileObject): Promise<RTICreateResponse> =>
-  api.post<RTICreateResponse>('/rtis', body).then((r) => r.data)
-
+  DEMO_MODE
+    ? mockApi.createRTI(body)
+    : api.post<RTICreateResponse>('/rtis', body).then((r) => r.data)
