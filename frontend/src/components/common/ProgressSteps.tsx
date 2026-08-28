@@ -12,7 +12,7 @@ export function ProgressSteps({ currentStep }: Props) {
 
       {/* Steps progress bar */}
       <div className="w-full bg-white border-b border-slate-100">
-        <div className="max-w-5xl mx-auto px-4 pb-4 pt-3">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8 pb-4 pt-3">
           <div className="flex items-center">
             {WIZARD_STEPS.map((step, idx) => {
               const done   = currentStep > step.id

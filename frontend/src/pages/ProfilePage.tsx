@@ -22,7 +22,7 @@ export default function ProfilePage() {
     <div className="min-h-screen flex flex-col bg-slate-50">
       <AppHeader />
 
-      <div className="max-w-2xl w-full mx-auto px-4 py-10 animate-slide-up">
+      <div className="max-w-4xl w-full mx-auto px-6 lg:px-8 py-10 animate-slide-up">
         <Link to="/filing/dashboard" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 mb-6">
           <ArrowLeft size={14} /> Back to Dashboard
         </Link>

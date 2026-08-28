@@ -110,7 +110,7 @@ function FilingStepper({ currentKey, rtiId }: { currentKey: StepKey; rtiId?: num
 
   return (
     <div className="w-full bg-white border-b border-slate-100">
-      <div className="max-w-5xl mx-auto px-4 pb-4 pt-3">
+      <div className="max-w-7xl mx-auto px-6 lg:px-8 pb-4 pt-3">
         <div className="flex items-center">
           {FILING_STEPS.map((step, idx) => {
             const done   = idx < currentIdx;
@@ -207,7 +207,7 @@ function PageShell({
       <AppHeader />
       {stepKey && <FilingStepper currentKey={stepKey} rtiId={rtiId} />}
 
-      <div className="max-w-2xl w-full mx-auto px-4 py-10 animate-slide-up">
+      <div className="max-w-4xl w-full mx-auto px-6 lg:px-8 py-10 animate-slide-up">
         <div className="mb-6">
           <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1">{eyebrow}</p>
           <h1 className="text-2xl font-bold text-slate-800">{title}</h1>
@@ -339,18 +339,14 @@ function Applicant() {
         </div>
       )}
 
-      {/* Bottom nav */}
-      <div className="flex items-center justify-between mt-6 pt-4 border-t border-slate-100">
+      {/* Bottom nav — OTP send/verify lives in the form above, not duplicated here */}
+      <div className="flex items-center mt-6 pt-4 border-t border-slate-100">
         <Link to="/filing/dashboard" className="btn-secondary flex items-center gap-2">
           <ArrowLeft size={15} /> Dashboard
         </Link>
-        <button
-          onClick={sendOtp}
-          disabled={loading}
-          className="btn-primary flex items-center gap-2"
-        >
-          {loading ? "Sending…" : "Send OTP"} <ChevronRight size={16} />
-        </button>
+        <span className="ml-auto text-xs text-slate-400">
+          Verify the OTP to continue to Documents
+        </span>
       </div>
     </PageShell>
   );
@@ -592,11 +588,17 @@ function Dashboard() {
     } finally { setResetting(false); }
   }
 
+  function jumpToFiling() {
+    const target =
+      rtis.find((r) => r.status === "READY_TO_FILE") ?? rtis[0];
+    navigate(`/filing/${target?.id ?? 1}/applicant`);
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
       <AppHeader />
 
-      <div className="max-w-3xl w-full mx-auto px-4 py-10 animate-slide-up">
+      <div className="max-w-6xl w-full mx-auto px-6 lg:px-8 py-10 animate-slide-up">
 
         {/* Heading + demo reset (de-emphasized) */}
         <div className="flex items-start justify-between mb-5">
@@ -615,18 +617,29 @@ function Dashboard() {
         </div>
 
         {/* Primary CTA */}
-        <div className="card mb-8 bg-gradient-to-br from-primary-800 to-primary-700 border-primary-700 text-white">
-          <p className="text-xs font-semibold uppercase tracking-widest text-blue-200 mb-2">Start here</p>
-          <h2 className="text-xl font-bold mb-1">File a New RTI</h2>
-          <p className="text-blue-100 text-sm mb-4 leading-relaxed">
-            Describe what you need and let RTI Navigator prepare the application.
-          </p>
-          <Link
-            to="/"
-            className="inline-flex items-center gap-2 bg-white text-primary-800 font-semibold px-5 py-2.5 rounded-xl hover:bg-blue-50 transition-colors text-sm"
-          >
-            Start New RTI <ChevronRight size={16} />
-          </Link>
+        <div className="card mb-8 bg-gradient-to-br from-primary-800 to-primary-700 border-primary-700 text-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-5">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-widest text-blue-200 mb-1">Start here</p>
+            <h2 className="text-xl font-bold mb-1">File a New RTI</h2>
+            <p className="text-blue-100 text-sm leading-relaxed max-w-md">
+              Describe what you need and let RTI Navigator prepare the application, or jump
+              straight into the filing steps with the demo request.
+            </p>
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
+            <Link
+              to="/"
+              className="inline-flex items-center gap-2 bg-white text-primary-800 font-semibold px-5 py-2.5 rounded-lg hover:bg-blue-50 transition-colors text-sm"
+            >
+              Start New RTI <ChevronRight size={16} />
+            </Link>
+            <button
+              onClick={jumpToFiling}
+              className="inline-flex items-center gap-2 border border-white/40 text-white font-semibold px-5 py-2.5 rounded-lg hover:bg-white/10 transition-colors text-sm"
+            >
+              Jump to filing <ChevronRight size={15} />
+            </button>
+          </div>
         </div>
 
         <DisclosureCard />
@@ -697,7 +710,7 @@ function Detail() {
     <div className="min-h-screen flex flex-col bg-slate-50">
       <AppHeader />
 
-      <div className="max-w-5xl w-full mx-auto px-4 py-10 animate-slide-up">
+      <div className="max-w-7xl w-full mx-auto px-6 lg:px-8 py-10 animate-slide-up">
         <Link to="/filing/dashboard" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 mb-6">
           <ArrowLeft size={14} /> Dashboard
         </Link>

@@ -24,7 +24,7 @@ export function AppHeader() {
       {/* Indian flag tricolour accent */}
       <div className="tricolour-bar" />
 
-      <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div className="max-w-7xl mx-auto px-6 lg:px-8 py-3 flex items-center justify-between">
         {/* Logo */}
         <Link to="/filing/dashboard" className="flex items-center gap-2 no-underline">
           <div className="w-8 h-8 bg-primary-800 rounded-lg flex items-center justify-center shrink-0">

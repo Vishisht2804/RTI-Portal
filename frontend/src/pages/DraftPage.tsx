@@ -67,7 +67,7 @@ export default function DraftPage() {
     <div className="min-h-screen flex flex-col bg-slate-50">
       <ProgressSteps currentStep={4} />
 
-      <div className="max-w-5xl w-full mx-auto px-4 py-10 animate-slide-up">
+      <div className="max-w-6xl w-full mx-auto px-6 lg:px-8 py-10 animate-slide-up">
         <div className="flex items-start justify-between flex-wrap gap-3 mb-6">
           <div>
             <h2 className="text-2xl font-bold text-slate-800">AI Draft</h2>

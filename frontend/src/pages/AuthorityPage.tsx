@@ -113,7 +113,7 @@ export default function AuthorityPage() {
     <div className="min-h-screen flex flex-col bg-slate-50">
       <ProgressSteps currentStep={3} />
 
-      <div className="max-w-2xl w-full mx-auto px-4 py-10 animate-slide-up">
+      <div className="max-w-4xl w-full mx-auto px-6 lg:px-8 py-10 animate-slide-up">
         <h2 className="text-2xl font-bold text-slate-800 mb-1">Authority Finder</h2>
         <p className="text-slate-500 text-sm mb-6">
           We matched your query to the most relevant Public Information Officer.

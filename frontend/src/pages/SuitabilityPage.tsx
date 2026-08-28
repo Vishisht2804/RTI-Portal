@@ -31,7 +31,7 @@ export default function SuitabilityPage() {
     <div className="min-h-screen flex flex-col bg-slate-50">
       <ProgressSteps currentStep={2} />
 
-      <div className="max-w-2xl w-full mx-auto px-4 py-10 flex flex-col gap-6 animate-slide-up">
+      <div className="max-w-4xl w-full mx-auto px-6 lg:px-8 py-10 flex flex-col gap-6 animate-slide-up">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Suitability Check</h2>
           <p className="text-slate-500 text-sm mt-1">
