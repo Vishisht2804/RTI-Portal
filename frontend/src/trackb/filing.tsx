@@ -15,6 +15,8 @@ import {
   ChevronRight, Clock, User, ArrowLeft, PlusCircle, SparklesIcon,
 } from "lucide-react";
 import { AppHeader } from "../components/common/AppHeader";
+import { DEMO_MODE } from "../services/demo/config";
+import { mockRequest, mockUploadDocument } from "../services/mockApi";
 
 const API_URL = "/api/v1";
 
@@ -34,6 +36,9 @@ export type RtiDetail = {
 // ─── API helper ───────────────────────────────────────────────────────────────
 
 export async function api(path: string, options: { method?: string; body?: unknown } = {}) {
+  if (DEMO_MODE) {
+    return mockRequest(path, options);
+  }
   const response = await fetch(`${API_URL}${path}`, {
     method: options.method ?? "GET",
     headers: options.body ? { "Content-Type": "application/json" } : undefined,
@@ -359,7 +364,11 @@ function Documents() {
       const form = new FormData();
       form.append("rti_id", String(rtiId));
       form.append("file", blob, "supporting-document.pdf");
-      await fetch(`${API_URL}/documents`, { method: "POST", body: form });
+      if (DEMO_MODE) {
+        await mockUploadDocument(form);
+      } else {
+        await fetch(`${API_URL}/documents`, { method: "POST", body: form });
+      }
       await reload();
     } finally { setUploading(false); }
   }
