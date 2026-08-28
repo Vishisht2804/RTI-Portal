@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom'
 import { LayoutDashboard, PlusCircle, User } from 'lucide-react'
+import { ThemeToggle } from './ThemeToggle'
 
 /**
  * Shared application header — used by both Track A and Track B.
@@ -48,10 +49,13 @@ export function AppHeader() {
           </Link>
         </nav>
 
-        {/* Demo badge */}
-        <span className="hidden md:inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-slate-400 border border-slate-200 rounded-full px-2.5 py-1 ml-2">
-          Demo Mode
-        </span>
+        {/* Theme toggle + demo badge */}
+        <div className="flex items-center gap-2 ml-2">
+          <ThemeToggle />
+          <span className="hidden md:inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-slate-400 border border-slate-200 rounded-full px-2.5 py-1">
+            Demo Mode
+          </span>
+        </div>
       </div>
     </div>
   )
