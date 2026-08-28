@@ -1,46 +1,46 @@
-const API_URL = "http://localhost:8000/api/v1";
-console.log("USING API URL:", JSON.stringify(API_URL));
+import axios from 'axios'
+import type {
+  IntentRequest, IntentResponse,
+  AuthorityRecommendRequest, AuthorityRecommendResponse,
+  DraftGenerateRequest, DraftGenerateResponse,
+  DraftValidateRequest, DraftValidateResponse,
+  ReadyToFileObject, RTICreateResponse,
+} from '../types/rti'
 
-export type RtiDetail = {
-  id: number;
-  registration_number: string | null;
-  authority_name: string;
-  status: string;
-  final_request: string;
-  documents: { id: number; filename: string; size: number }[];
-  status_events: { id: number; title: string; description: string; status: string }[];
-  next_action: { title: string; description: string; action?: string; action_url?: string };
-};
+const api = axios.create({
+  baseURL: '/api/v1',
+  headers: { 'Content-Type': 'application/json' },
+  timeout: 30_000,
+})
 
-export const demoReadyToFile = {
-  draft_id: 101,
-  authority_id: 12,
-  authority_name: "Ministry of Health and Family Welfare",
-  jurisdiction: "central",
-  category: "health",
-  request_text:
-    "Please provide the sanctioned budget, expenditure incurred, current completion status, and completion date for government hospital infrastructure projects funded by the Ministry of Health and Family Welfare during 2025.",
-  original_query: "How much did Ministry of Health spend on government hospitals in 2025?",
-  validation_status: "ready",
-  quality_checks: {
-    authority: true,
-    jurisdiction: true,
-    information_request: true,
-    specificity: true,
-    character_limit: true,
-  },
-};
-
-export async function api(path: string, options: { method?: string; body?: unknown } = {}) {
-  const response = await fetch(`${API_URL}${path}`, {
-    method: options.method ?? "GET",
-    headers: options.body ? { "Content-Type": "application/json" } : undefined,
-    body: options.body ? JSON.stringify(options.body) : undefined,
-  });
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.error?.message ?? "API request failed");
+api.interceptors.response.use(
+  (r) => r,
+  (err) => {
+    const msg = err.response?.data?.detail ?? err.message ?? 'Network error'
+    return Promise.reject(new Error(msg))
   }
-  return data;
-}
+)
 
+// ─── P1 endpoints ─────────────────────────────────────────────────────────────
+
+export const analyzeIntent = (req: IntentRequest): Promise<IntentResponse> =>
+  api.post<IntentResponse>('/intent/analyze', req).then((r) => r.data)
+
+export const recommendAuthority = (req: AuthorityRecommendRequest): Promise<AuthorityRecommendResponse> =>
+  api.post<AuthorityRecommendResponse>('/authorities/recommend', req).then((r) => r.data)
+
+export const generateDraft = (req: DraftGenerateRequest): Promise<DraftGenerateResponse> =>
+  api.post<DraftGenerateResponse>('/drafts/generate', req).then((r) => r.data)
+
+export const validateDraft = (req: DraftValidateRequest): Promise<DraftValidateResponse> =>
+  api.post<DraftValidateResponse>('/drafts/validate', req).then((r) => r.data)
+
+// ─── P2 handoff (P1 creates the object, P2 persists it) ─────────────────────
+
+export const createRTI = (body: ReadyToFileObject): Promise<RTICreateResponse> =>
+  api.post<RTICreateResponse>('/rtis', body).then((r) => r.data)
+
+// ─── Demo reset ───────────────────────────────────────────────────────────────
+
+export const resetDemo = (): Promise<unknown> =>
+  api.post('/demo').then((r) => r.data)

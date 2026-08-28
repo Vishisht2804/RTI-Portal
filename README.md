@@ -1,37 +1,97 @@
-# RTI Navigator Track B
+# RTI Navigator — Merged (Track A + Track B)
 
-This repository implements the Track B vertical slice from Ready-to-File handoff onward:
+AI-guided RTI filing assistant — *Build What Moves India* hackathon.
 
-Ready-to-File fixture -> applicant details -> demo OTP -> documents -> mock payment -> review -> simulated submission -> registration number -> dashboard -> status timeline -> next action.
+This branch (`merged-final`) combines both tracks into one working application:
 
-The provided architecture and execution documents remain source references. The code labels all non-real operations as simulated and never claims to file with a real government system.
+- **Track A — AI intake:** plain-language query → intent extraction → RTI-suitability
+  and jurisdiction rules → authority recommendation (35 curated Indian authorities) →
+  AI-drafted RTI application → 5 deterministic quality checks → validated
+  **Ready-to-File** object.
+- **Track B — filing lifecycle:** Ready-to-File → applicant details → demo OTP →
+  documents → simulated payment → review → simulated submission → registration
+  number → dashboard → status timeline → next action.
 
-## Run Backend
+Track A hands off to Track B via `POST /api/v1/rtis`. Every non-real operation is
+labelled *simulated*; nothing is filed with a real government system. When
+`OPENAI_API_KEY` is unset the AI steps fall back to rehearsed responses, so the
+demo never crashes.
 
-```powershell
-cd C:\Users\guruv\Desktop\hack\backend
-python -m venv .venv
-.\.venv\Scripts\pip install -r requirements.txt
-$env:DATABASE_URL = "sqlite+pysqlite:///./local-demo.db"
-.\.venv\Scripts\uvicorn app.main:app --reload
+## End-to-end flow
+
+```
+frontend (React + TS + Vite + Tailwind)
+  POST /api/v1/intent/analyze         ─┐
+  POST /api/v1/authorities/recommend   │  Track A intake
+  POST /api/v1/drafts/generate         │
+  POST /api/v1/drafts/validate        ─┘
+  POST /api/v1/rtis                   ─┐
+  POST /api/v1/rtis/{id}/applicant     │
+  POST /api/v1/rtis/{id}/otp/send      │  Track B lifecycle
+  POST /api/v1/rtis/{id}/otp/verify    │
+  POST /api/v1/rtis/{id}/payment       │
+  POST /api/v1/rtis/{id}/submit       ─┘
+backend (FastAPI + SQLAlchemy 2.0 + PostgreSQL)
+  rules engine (deterministic)  ·  OpenAI GPT-4o-mini + fallbacks  ·  lifecycle state machine
 ```
 
-For PostgreSQL, use `docker compose up` from the repository root.
+## Quick start (Docker)
 
-## Run Frontend
+```bash
+cp .env.example .env        # optionally add OPENAI_API_KEY
+docker compose up --build
+```
 
-```powershell
-cd C:\Users\guruv\Desktop\hack\frontend
+- Frontend: http://localhost:5173
+- API + Swagger: http://localhost:8000/docs
+
+## Local development
+
+**Backend**
+```bash
+cd backend
+python -m venv .venv && . .venv/Scripts/activate   # or source .venv/bin/activate
+pip install -r requirements.txt
+export DATABASE_URL="sqlite+pysqlite:///./local-demo.db"   # or run Postgres via docker compose
+uvicorn app.main:app --reload
+```
+
+**Frontend**
+```bash
+cd frontend
 npm install
-npm run dev
+npm run dev        # http://localhost:5173  (proxies /api → :8000)
 ```
 
-Open `http://localhost:5173/fixture`.
+## Tests
 
-## Test
-
-```powershell
-cd C:\Users\guruv\Desktop\hack\backend
-pytest
+```bash
+cd backend
+pytest              # 32 tests: Track A rules/AI parsers + Track B lifecycle
 ```
 
+## Demo reset
+
+```bash
+curl -X POST http://localhost:8000/api/v1/demo        # or /api/v1/demo/reset
+```
+Clears Track A drafts, re-seeds the 35 authorities, and seeds one known
+Ready-to-File RTI so the dashboard is never empty.
+See `docs/demo-scenarios.md` for the three scripted flows.
+
+## Environment variables
+
+| Variable | Default | Notes |
+|----------|---------|-------|
+| `DATABASE_URL` | `postgresql+psycopg://rti:rti@localhost:5432/rti_navigator` | `postgresql://` URLs are auto-upgraded to psycopg v3 |
+| `CORS_ORIGINS` | `http://localhost:5173,http://localhost:3000` | comma-separated or JSON list |
+| `OPENAI_API_KEY` | — | optional; app runs on fallbacks without it |
+| `LLM_MODEL` | `gpt-4o-mini` | |
+| `DEMO_OTP` | `123456` | |
+| `RTI_PAYMENT_AMOUNT` | `10` | |
+| `DEMO_MODE` | `true` | |
+
+## Tech stack
+
+FastAPI · SQLAlchemy 2.0 · Alembic · PostgreSQL · OpenAI SDK · React 18 ·
+TypeScript · Vite · Tailwind CSS · TanStack Query · React Router · Docker Compose
