@@ -1,7 +1,10 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
-import { SearchIcon, ArrowRightIcon, SparklesIcon, ShieldCheckIcon, ZapIcon } from 'lucide-react'
+import {
+  SearchIcon, ArrowRightIcon, SparklesIcon, ShieldCheckIcon, ZapIcon,
+  InfoIcon, ExternalLinkIcon, ScaleIcon, WifiIcon,
+} from 'lucide-react'
 import { ProgressSteps } from '../components/common/ProgressSteps'
 import { Spinner } from '../components/common/Spinner'
 import { ErrorMessage } from '../components/common/ErrorMessage'
@@ -72,6 +75,44 @@ export default function IntentPage() {
 
       {/* Input card — overlaps hero */}
       <div className="max-w-3xl w-full mx-auto px-4 -mt-8 pb-16">
+
+        {/* Why this exists — problem framing */}
+        <div className="card shadow-xl mb-4 border-l-4 border-primary-500">
+          <div className="flex items-center gap-2 mb-2">
+            <InfoIcon size={15} className="text-primary-600" />
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Why this exists</p>
+          </div>
+          <p className="text-sm text-slate-600 leading-relaxed">
+            An ordinary citizen who wants a government record has to use{' '}
+            <a
+              href="https://rtionline.gov.in"
+              target="_blank"
+              rel="noreferrer"
+              className="text-primary-700 font-medium inline-flex items-center gap-0.5 hover:underline"
+            >
+              rtionline.gov.in <ExternalLinkIcon size={12} />
+            </a>
+            . That portal is English-only, assumes you already know whether your subject is
+            <em> central</em> or <em> state</em>, and gives no help choosing the correct Public
+            Information Officer among hundreds. Pick the wrong ministry or jurisdiction and the
+            application is rejected or transferred, losing weeks. Most people give up.
+          </p>
+          <p className="text-sm text-slate-600 leading-relaxed mt-2">
+            <span className="font-semibold text-slate-700">What we changed:</span> you describe
+            the information you want in plain language. RTI Navigator classifies suitability and
+            jurisdiction with deterministic rules, recommends the right authority, drafts a
+            legally-phrased application, and runs quality checks — before you file.
+          </p>
+        </div>
+
+        {/* Reviewer / demo credentials */}
+        <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 mb-4 text-xs text-amber-800 flex flex-wrap items-center gap-x-4 gap-y-1">
+          <span className="font-bold uppercase tracking-wide">Demo</span>
+          <span>Mock consumer login — OTP <span className="font-mono font-semibold">123456</span></span>
+          <span>Payment ₹10 auto-approves (or simulate failure)</span>
+          <span>Every step is labelled <span className="font-semibold">SIMULATED</span>; nothing is filed</span>
+        </div>
+
         <div className="card shadow-xl">
           <label className="block text-sm font-semibold text-slate-600 mb-2">
             What government information do you need?
@@ -149,6 +190,30 @@ export default function IntentPage() {
             </div>
           ))}
         </div>
+
+        {/* How this could scale */}
+        <details className="card mt-6 group">
+          <summary className="flex items-center gap-2 cursor-pointer list-none select-none">
+            <ScaleIcon size={15} className="text-primary-600" />
+            <span className="text-sm font-semibold text-slate-700">How this could work safely at a larger scale</span>
+            <span className="ml-auto text-xs text-slate-400 group-open:hidden">Show</span>
+            <span className="ml-auto text-xs text-slate-400 hidden group-open:inline">Hide</span>
+          </summary>
+          <ul className="mt-3 space-y-2 text-sm text-slate-600 leading-relaxed">
+            <li><span className="font-medium text-slate-700">Identity:</span> Aadhaar / DigiLocker-based auth instead of a demo OTP, so an applicant's identity is verified once and reused.</li>
+            <li><span className="font-medium text-slate-700">Filing:</span> submit through the official RTI portal API if/when it is opened, with the simulated payment replaced by the real ₹10 gateway; until then, export a print-ready application.</li>
+            <li><span className="font-medium text-slate-700">Routing:</span> a maintained registry of central ministries and every State Information Commission, so jurisdiction and PIO routing stay correct as departments reorganise.</li>
+            <li><span className="font-medium text-slate-700">Language:</span> the deterministic rules and drafting templates are language-agnostic; add Indian-language input and output.</li>
+            <li><span className="font-medium text-slate-700">Safety:</span> AI only drafts and explains — suitability, jurisdiction and quality checks stay deterministic and auditable, with a human confirming before anything is filed.</li>
+          </ul>
+        </details>
+
+        {/* Slow-connection note */}
+        <p className="mt-4 text-xs text-slate-400 flex items-center gap-1.5">
+          <WifiIcon size={12} />
+          Built light for slower connections — pages are small, your progress is saved in the
+          browser, and you can close the tab and resume later.
+        </p>
       </div>
     </div>
   )

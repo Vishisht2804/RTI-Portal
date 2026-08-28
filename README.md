@@ -17,6 +17,27 @@ labelled *simulated*; nothing is filed with a real government system. When
 `OPENAI_API_KEY` is unset the AI steps fall back to rehearsed responses, so the
 demo never crashes.
 
+## Demo credentials & disclosure (for reviewers)
+
+Mock consumer login — the app never sends a real SMS or contacts a payment/government system:
+
+| Step | How to complete it in the demo |
+| --- | --- |
+| Applicant OTP | Enter **`123456`** (shown on the screen; no SMS is sent) |
+| Payment | Click **Mark payment success** — a simulated ₹10 fee. **Simulate failure** exercises the retry path |
+| Submission | Click **Submit RTI** — generates a demo registration number `RTI/YYYY/NNNNN`; nothing is filed |
+| Reset | **Demo reset** on the Dashboard restores the seeded state |
+
+**Real / deterministic:** AI intent analysis (GPT-4o-mini, with rehearsed fallback), RTI
+suitability + central/state jurisdiction rules, authority recommendation over 35 curated
+authorities, 5 draft quality checks.
+**Simulated:** OTP, ₹10 payment, government submission, status timeline events.
+
+Every simulated screen carries a `SIMULATED — no real data is sent` banner, and the
+Dashboard shows a "What works vs what is mocked" card. A frontend-only Demo Mode
+(`VITE_DEMO_MODE=true`) runs the whole flow with no backend at all — see
+`frontend/src/services/mockApi.ts`.
+
 ## End-to-end flow
 
 ```

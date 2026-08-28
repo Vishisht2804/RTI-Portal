@@ -15,6 +15,8 @@ import {
   ChevronRight, Clock, User, ArrowLeft, PlusCircle, SparklesIcon,
 } from "lucide-react";
 import { AppHeader } from "../components/common/AppHeader";
+import { SimulatedBanner } from "../components/common/SimulatedBanner";
+import { DisclosureCard } from "../components/common/DisclosureCard";
 import { DEMO_MODE } from "../services/demo/config";
 import { mockRequest, mockUploadDocument } from "../services/mockApi";
 
@@ -280,6 +282,10 @@ function Applicant() {
       <div className="card mb-4">
         <ContextBar rti={rti} />
 
+        <SimulatedBanner>
+          Demo OTP: <span className="font-mono">123456</span> — enter it below. No SMS is sent.
+        </SimulatedBanner>
+
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700 flex items-center gap-2 mb-4">
             <AlertCircle size={15} /> {error}
@@ -436,12 +442,9 @@ function Payment() {
       <div className="card mb-4">
         <ContextBar rti={rti} />
 
-        <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 mb-6">
-          <p className="text-sm font-semibold text-orange-800 mb-1">Simulated Payment</p>
-          <p className="text-sm text-orange-700">
-            Rs. 10 application fee. No real payment is processed in this demo.
-          </p>
-        </div>
+        <SimulatedBanner>
+          ₹10 application fee — the buttons below just set a status. No payment provider is called.
+        </SimulatedBanner>
 
         <div className="bg-slate-50 border border-slate-100 rounded-xl p-5 mb-6 text-center">
           <CreditCard size={32} className="text-primary-600 mx-auto mb-2" />
@@ -498,20 +501,18 @@ function Review() {
       <div className="card mb-4">
         <ContextBar rti={rti} />
 
+        <SimulatedBanner>
+          “Submit RTI” generates a demo registration number. Nothing is filed with a real
+          Public Information Officer or rtionline.gov.in.
+        </SimulatedBanner>
+
         <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
           Final RTI Request
         </p>
-        <div className="bg-slate-50 border-l-4 border-primary-600 rounded-lg p-4 mb-6">
+        <div className="bg-slate-50 border-l-4 border-primary-600 rounded-lg p-4 mb-2">
           <pre className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap font-sans max-h-64 overflow-y-auto">
             {rti?.final_request ?? "Loading…"}
           </pre>
-        </div>
-
-        <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6">
-          <p className="text-sm text-blue-800">
-            By submitting, you confirm this RTI application is accurate and complete.
-            This is a simulated submission for the hackathon demo.
-          </p>
         </div>
       </div>
 
@@ -534,6 +535,11 @@ function Submitted() {
 
   return (
     <PageShell eyebrow="Confirmation" title="Submission Recorded">
+      <SimulatedBanner>
+        The registration number below is generated locally for the demo. No RTI was filed
+        with any government system.
+      </SimulatedBanner>
+
       <div className="card text-center">
         <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
           <CheckCircle2 size={40} className="text-emerald-600" />
@@ -622,6 +628,8 @@ function Dashboard() {
             Start New RTI <ChevronRight size={16} />
           </Link>
         </div>
+
+        <DisclosureCard />
 
         {/* RTI list */}
         {rtis.length === 0 ? (
