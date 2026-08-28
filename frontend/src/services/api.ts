@@ -40,7 +40,3 @@ export const validateDraft = (req: DraftValidateRequest): Promise<DraftValidateR
 export const createRTI = (body: ReadyToFileObject): Promise<RTICreateResponse> =>
   api.post<RTICreateResponse>('/rtis', body).then((r) => r.data)
 
-// ─── Demo reset ───────────────────────────────────────────────────────────────
-
-export const resetDemo = (): Promise<unknown> =>
-  api.post('/demo').then((r) => r.data)

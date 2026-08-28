@@ -195,7 +195,7 @@ function PageShell({
       <FilingHeader />
       {stepKey && <FilingStepper currentKey={stepKey} />}
 
-      <div className="max-w-2xl w-full mx-auto px-4 pb-16 animate-slide-up">
+      <div className="max-w-2xl w-full mx-auto px-4 py-10 animate-slide-up">
         <div className="mb-6">
           <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1">{eyebrow}</p>
           <h1 className="text-2xl font-bold text-slate-800">{title}</h1>

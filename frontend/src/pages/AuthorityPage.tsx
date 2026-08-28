@@ -1,11 +1,10 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import {
   BuildingIcon, ArrowRightIcon, ArrowLeftIcon,
   CheckCircle2Icon, ShieldIcon, ChevronDownIcon, ChevronUpIcon
 } from 'lucide-react'
-import { useState } from 'react'
 import { ProgressSteps } from '../components/common/ProgressSteps'
 import { Spinner } from '../components/common/Spinner'
 import { ErrorMessage } from '../components/common/ErrorMessage'

@@ -4,7 +4,7 @@ import { useMutation } from '@tanstack/react-query'
 import {
   FileTextIcon, CheckCircle2Icon, SendIcon, DownloadIcon,
   BuildingIcon, MapPinIcon, TagIcon, ShieldCheckIcon,
-  AlertTriangleIcon, HomeIcon, CheckIcon,
+  AlertTriangleIcon,
 } from 'lucide-react'
 import { ProgressSteps } from '../components/common/ProgressSteps'
 import { Spinner } from '../components/common/Spinner'
@@ -15,13 +15,12 @@ import { CATEGORY_LABELS } from '../types/rti'
 
 export default function ReadyToFilePage() {
   const navigate = useNavigate()
-  const { state, setRTICreate, reset } = useWizard()
+  const { state, setRTICreate } = useWizard()
   const intent    = state.intentResult
   const authority = state.selectedAuthority
   const draft     = state.draftResult
   const validation = state.validationResult
   const editedText = state.editedDraftText ?? draft?.draft_text ?? ''
-  const [filed, setFiled] = useState(false)
   const [apiError, setApiError] = useState('')
 
   useEffect(() => {
@@ -49,9 +48,7 @@ export default function ReadyToFilePage() {
     mutationFn: () => createRTI(payload),
     onSuccess: (data) => {
       setRTICreate(data)
-      setFiled(true)
       setApiError('')
-      // Hand off to the Track B filing lifecycle.
       navigate(`/filing/${data.rti_id}/applicant`)
     },
     onError: (err: Error) => {
@@ -68,36 +65,6 @@ export default function ReadyToFilePage() {
     a.download = `RTI_${authority.name.replace(/\s+/g, '_')}_${Date.now()}.txt`
     a.click()
     URL.revokeObjectURL(url)
-  }
-
-  if (filed && state.rtiCreateResult) {
-    return (
-      <div className="min-h-screen flex flex-col bg-slate-50">
-        <ProgressSteps currentStep={6} />
-        <div className="max-w-lg w-full mx-auto px-4 py-20 text-center animate-slide-up">
-          <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <CheckIcon size={40} className="text-emerald-600" />
-          </div>
-          <h2 className="text-3xl font-extrabold text-slate-800 mb-3">RTI Filed!</h2>
-          <p className="text-slate-500 mb-2">
-            Your application has been registered as{' '}
-            <span className="font-bold text-primary-700">RTI #{state.rtiCreateResult.rti_id}</span>
-          </p>
-          <p className="text-slate-400 text-sm mb-8">
-            Status: <span className="text-emerald-600 font-semibold">{state.rtiCreateResult.status}</span>
-          </p>
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <button onClick={handleDownload} className="btn-secondary flex items-center gap-2 justify-center">
-              <DownloadIcon size={16} /> Download copy
-            </button>
-            <button onClick={() => { reset(); navigate('/') }}
-              className="btn-primary flex items-center gap-2 justify-center">
-              <HomeIcon size={16} /> File another RTI
-            </button>
-          </div>
-        </div>
-      </div>
-    )
   }
 
   return (
