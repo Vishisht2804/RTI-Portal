@@ -146,7 +146,13 @@ export async function recommendAuthority(
   }
 
   const primary = scored[0]
-  const alternatives = scored.slice(1)
+  const category = primary.category
+  const inScope = scored.slice(1)
+  // Same-category authorities come first in alternatives so the UI surface is most relevant.
+  const alternatives = [
+    ...inScope.filter((a) => a.authority_id !== primary.authority_id && a.category === category),
+    ...inScope.filter((a) => a.authority_id !== primary.authority_id && a.category !== category),
+  ].slice(0, 2)
 
   return { primary, alternatives, ambiguity }
 }

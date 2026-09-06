@@ -8,10 +8,27 @@ import { Spinner } from '../components/common/Spinner'
 import { analyzeIntent } from '../services/api'
 import { useWizard } from '../context/WizardContext'
 
-const EXAMPLES = [
-  'How much did the Ministry of Health spend on government hospitals in 2025?',
-  'Provide details of tenders awarded by NHAI for highway construction in 2023–24.',
-  'What is the status of my pending PF withdrawal claim filed in January 2025?',
+const EXAMPLES: { label: string; query: string }[] = [
+  {
+    label: 'Union health spending',
+    query: 'How much did the Ministry of Health spend on government hospitals in 2025?',
+  },
+  {
+    label: 'IIT approvals',
+    query: 'Provide the number of new IITs approved by the Union Government between 2020 and 2025, along with the approval orders.',
+  },
+  {
+    label: 'Railway redevelopment',
+    query: 'Please provide the sanctioned cost, revised cost, and completion status of railway station redevelopment projects approved between 2022 and 2025.',
+  },
+  {
+    label: 'Karnataka hospital spending',
+    query: 'Provide the budget allocated and expenditure incurred by the Karnataka Department of Health and Family Welfare for district hospitals during 2024-25.',
+  },
+  {
+    label: 'Broken streetlights',
+    query: "Why haven't the streetlights in my area been repaired by the municipal corporation for the past three months?",
+  },
 ]
 
 const JOURNEY: [string, string, string][] = [
@@ -124,13 +141,17 @@ export default function IntentPage() {
               <div className="flex flex-col divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden">
                 {EXAMPLES.map((ex) => (
                   <button
-                    key={ex}
-                    onClick={() => { setText(ex); setError('') }}
+                    key={ex.label}
+                    onClick={() => { setText(ex.query); setError('') }}
                     disabled={mutation.isPending}
-                    className="text-left text-[13px] text-slate-600 hover:text-primary-800 hover:bg-slate-50
-                               px-3.5 py-2.5 leading-snug transition-colors"
+                    className="text-left px-3.5 py-2.5 leading-snug transition-colors hover:bg-slate-50 group"
                   >
-                    {ex}
+                    <span className="block text-[11px] font-semibold uppercase tracking-wide text-primary-600 group-hover:text-primary-700">
+                      {ex.label}
+                    </span>
+                    <span className="block text-[13px] text-slate-600 group-hover:text-primary-800 mt-0.5">
+                      {ex.query}
+                    </span>
                   </button>
                 ))}
               </div>

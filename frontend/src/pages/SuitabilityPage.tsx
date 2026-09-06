@@ -10,7 +10,8 @@ export default function SuitabilityPage() {
   const navigate = useNavigate()
   const { state } = useWizard()
   const result = state.intentResult
-  const [branch, setBranch] = useState<null | 'fix' | 'rti'>(null)
+  // branch: null = grievance screen | 'reframe' = reframing interstitial | 'rti' = RTI flow
+  const [branch, setBranch] = useState<null | 'reframe' | 'rti'>(null)
 
   useEffect(() => { if (!result) navigate('/') }, [result, navigate])
   if (!result) return null
@@ -21,8 +22,8 @@ export default function SuitabilityPage() {
   } = result
   const isState = jurisdiction === 'state'
 
-  // ── Grievance ────────────────────────────────────────────────────────────
-  if (grievance?.detected && branch !== 'rti') {
+  // ── Grievance screen ─────────────────────────────────────────────────────
+  if (grievance?.detected && branch === null) {
     return (
       <div className="min-h-screen flex flex-col bg-slate-50">
         <ProgressSteps />
@@ -47,7 +48,7 @@ export default function SuitabilityPage() {
                 </p>
                 <p className="text-[15px] text-slate-600 mt-3 leading-relaxed">{grievance.rti_reframe}</p>
                 <p className="text-[13px] text-slate-400 mt-4">
-                  We are not submitting a grievance on your behalf. This is guidance only.
+                  RTI Navigator provides guidance only. It does not file grievances on your behalf.
                 </p>
               </div>
               <button onClick={() => navigate('/')} className="text-sm font-medium text-slate-500 hover:text-slate-800 mt-4">
@@ -63,11 +64,21 @@ export default function SuitabilityPage() {
                   runs CPGRAMS (pgportal.gov.in) and most states run their own portals.
                 </p>
               </div>
-              <button
-                onClick={() => setBranch('rti')}
-                className="btn-primary w-full mt-4"
+              {/* Primary: real external link to CPGRAMS */}
+              <a
+                href="https://pgportal.gov.in/"
+                target="_blank"
+                rel="noreferrer"
+                className="btn-primary w-full mt-4 block text-center"
               >
-                Continue with RTI anyway
+                Get the problem fixed →
+              </a>
+              {/* Secondary: reframe as information request — does NOT go directly to authority */}
+              <button
+                onClick={() => setBranch('reframe')}
+                className="block w-full text-center text-sm font-medium text-primary-800 hover:underline mt-3"
+              >
+                Ask for information instead
               </button>
             </aside>
           </div>
@@ -77,7 +88,71 @@ export default function SuitabilityPage() {
     )
   }
 
-  // ── Suitability verdict ──────────────────────────────────────────────────
+  // ── Reframing interstitial ────────────────────────────────────────────────
+  if (grievance?.detected && branch === 'reframe') {
+    return (
+      <div className="min-h-screen flex flex-col bg-slate-50">
+        <ProgressSteps />
+        <div className="page animate-slide-up">
+          <Breadcrumb items={[
+            { label: 'Home', to: '/' }, { label: 'Start a request', to: '/' },
+            { label: 'Suitability' }, { label: 'Reframe as RTI' },
+          ]} />
+          <h1 className="page-title">Reframing as an information request</h1>
+          <p className="page-subtitle max-w-2xl">
+            RTI is not a tool to compel action — but it can reveal what the authority has recorded,
+            approved, spent, or done about a problem.
+          </p>
+
+          <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px] items-start mt-8">
+            <div className="space-y-4">
+              <div className="panel p-6">
+                <p className="eyebrow">What you can ask via RTI</p>
+                <h2 className="section-title mt-2">Ask for records, not action</h2>
+                <p className="text-[15px] text-slate-600 mt-3 leading-relaxed">
+                  If your goal is to know what the government has recorded, approved, spent, or done about
+                  this problem, you can continue as an RTI. The application will ask the authority for
+                  records — it cannot demand that they fix anything.
+                </p>
+              </div>
+
+              {reformulation_suggestion && (
+                <div className="panel p-6">
+                  <p className="section-title">Suggested wording for an RTI</p>
+                  <p className="text-sm text-slate-600 mt-2 leading-relaxed">{reformulation_suggestion}</p>
+                </div>
+              )}
+            </div>
+
+            <aside>
+              <div className="panel p-6">
+                <h3 className="section-title">Important distinction</h3>
+                <p className="text-sm text-slate-600 mt-2 leading-relaxed">
+                  An RTI reply puts the authority's records on the public record — this often prompts
+                  action — but the RTI Act itself only gives you access to information.
+                </p>
+              </div>
+              <button
+                onClick={() => setBranch('rti')}
+                className="btn-primary w-full mt-4"
+              >
+                Continue as RTI
+              </button>
+              <button
+                onClick={() => setBranch(null)}
+                className="block w-full text-center text-sm font-medium text-slate-500 hover:text-slate-800 mt-3"
+              >
+                ← Back
+              </button>
+            </aside>
+          </div>
+        </div>
+        <AppFooter />
+      </div>
+    )
+  }
+
+  // ── Suitability verdict (branch === 'rti' means user explicitly reframed) ──
   const cameFromGrievance = grievance?.detected && branch === 'rti'
   const isSuitable = (is_rti_suitable || cameFromGrievance) && !isState
 
@@ -167,10 +242,10 @@ export default function SuitabilityPage() {
             </button>
             {grievance?.detected ? (
               <button
-                onClick={() => setBranch(null)}
+                onClick={() => setBranch('reframe')}
                 className="block w-full text-center text-sm font-medium text-primary-800 hover:underline mt-3"
               >
-                Get the problem fixed →
+                ← Back to reframing
               </button>
             ) : (
               <button

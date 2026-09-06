@@ -243,20 +243,35 @@ export default function AuthorityPage() {
                 {plausibleAlts.length > 0 && (
                   <div className="mt-6">
                     <h3 className="section-title">Other possible authorities</h3>
+                    <p className="text-[13px] text-slate-500 mt-1 leading-relaxed">
+                      These authorities may also hold relevant records. Same-category options are listed first.
+                    </p>
                     <div className="grid gap-2 mt-3">
                       {plausibleAlts.map((alt) => (
-                        <button
+                        <div
                           key={alt.authority_id}
-                          onClick={() => handleSelect(alt)}
-                          className={`panel p-4 text-left transition-colors ${
-                            selectedId === alt.authority_id ? 'border-primary-500' : 'hover:border-slate-300'
+                          className={`panel p-4 flex items-start gap-3 transition-colors ${
+                            selectedId === alt.authority_id ? 'border-primary-500' : ''
                           }`}
                         >
-                          <p className="text-sm font-semibold text-slate-900">{alt.name}</p>
-                          <p className="text-[13px] text-slate-500 mt-0.5">
-                            {scoreOf(alt)}% match · lower-confidence alternative
-                          </p>
-                        </button>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-slate-900">{alt.name}</p>
+                            <p className="text-[13px] text-slate-500 mt-0.5">
+                              {scoreOf(alt)}% match · {levelLabel(alt)}
+                            </p>
+                            {alt.description && (
+                              <p className="text-[13px] text-slate-500 mt-1 leading-relaxed line-clamp-2">
+                                {alt.description}
+                              </p>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => handleSelect(alt)}
+                            className="shrink-0 text-xs font-medium text-primary-700 border border-primary-300 hover:bg-primary-50 rounded-md px-3 py-1.5 transition-colors whitespace-nowrap"
+                          >
+                            Use this instead
+                          </button>
+                        </div>
                       ))}
                     </div>
                   </div>
