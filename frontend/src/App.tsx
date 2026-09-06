@@ -7,6 +7,8 @@ import DraftPage         from './pages/DraftPage'
 import QualityCheckPage  from './pages/QualityCheckPage'
 import ReadyToFilePage   from './pages/ReadyToFilePage'
 import ProfilePage       from './pages/ProfilePage'
+import HelpPage          from './pages/HelpPage'
+import HowItWorksPage    from './pages/HowItWorksPage'
 import FilingRoutes      from './trackb/filing'
 
 export default function App() {
@@ -21,6 +23,8 @@ export default function App() {
           <Route path="/draft"         element={<DraftPage />} />
           <Route path="/quality-check" element={<QualityCheckPage />} />
           <Route path="/ready-to-file" element={<ReadyToFilePage />} />
+          <Route path="/help"          element={<HelpPage />} />
+          <Route path="/how-it-works"  element={<HowItWorksPage />} />
 
           {/* Track B */}
           <Route path="/filing/profile" element={<ProfilePage />} />

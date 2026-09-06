@@ -12,6 +12,7 @@ const defaultState: WizardState = {
   intentResult: null,
   authorityResult: null,
   selectedAuthority: null,
+  ambiguityChoiceId: null,
   draftResult: null,
   editedDraftText: null,
   validationResult: null,
@@ -23,6 +24,7 @@ interface WizardContextType {
   setQuery:      (q: string) => void
   setIntent:     (r: IntentResponse) => void
   setAuthority:  (r: AuthorityRecommendResponse, selected: AuthorityResult) => void
+  setAmbiguityChoice: (id: string | null) => void
   setDraft:      (r: DraftGenerateResponse) => void
   setEditedText: (t: string) => void
   setValidation: (r: DraftValidateResponse) => void
@@ -56,6 +58,7 @@ export function WizardProvider({ children }: { children: React.ReactNode }) {
     setQuery:      (q) => patch({ originalQuery: q }),
     setIntent:     (r) => patch({ intentResult: r }),
     setAuthority:  (r, sel) => patch({ authorityResult: r, selectedAuthority: sel }),
+    setAmbiguityChoice: (id) => patch({ ambiguityChoiceId: id }),
     setDraft:      (r) => patch({ draftResult: r, editedDraftText: r.draft_text }),
     setEditedText: (t) => patch({ editedDraftText: t }),
     setValidation: (r) => patch({ validationResult: r }),

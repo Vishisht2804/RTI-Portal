@@ -1,13 +1,11 @@
 /**
- * DemoTimeControls — clearly-labelled prototype time-travel panel.
+ * DemoTimeControls — clearly-labelled prototype time controls.
  *
  * Lets a reviewer advance the demo clock to demonstrate deadline detection
- * without waiting 30 days. Shows current demo date and offers step controls.
- *
- * This component is only meaningful in DEMO_MODE — hide it in production builds.
+ * without waiting 30 days. Only meaningful in DEMO_MODE.
  */
-import React, { useState } from 'react'
-import { Clock, FastForward, RotateCcw } from 'lucide-react'
+import { useState } from 'react'
+import { RotateCcw } from 'lucide-react'
 import { formatShortDate } from '../../utils/deadline'
 import { DEMO_MODE } from '../../services/demo/config'
 
@@ -30,44 +28,28 @@ export function DemoTimeControls({ demoNow, onTimeChange, onAdvance, onReset, co
     setBusy(true)
     try { await onAdvance(days); onTimeChange() } finally { setBusy(false) }
   }
-
   async function reset() {
     setBusy(true)
     try { await onReset(); onTimeChange() } finally { setBusy(false) }
   }
 
+  const stepBtn =
+    'px-2 py-1 rounded border border-slate-300 bg-white text-slate-600 font-medium ' +
+    'hover:border-slate-400 transition-colors disabled:opacity-50'
+
   if (compact) {
     return (
-      <div className="flex items-center gap-2 px-3 py-2 bg-violet-50 border border-violet-200 rounded-xl text-xs">
-        <Clock size={11} className="text-violet-500 shrink-0" />
-        <span className="font-bold text-violet-600 uppercase tracking-wider">Demo Time</span>
-        <span className={`font-mono font-semibold ${isAdvanced ? 'text-violet-800' : 'text-slate-500'}`}>
+      <div className="flex items-center gap-2 px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs">
+        <span className="font-medium text-slate-400 uppercase tracking-wide">Demo date</span>
+        <span className={`font-mono ${isAdvanced ? 'text-slate-800 font-medium' : 'text-slate-500'}`}>
           {displayDate}
         </span>
         <div className="flex items-center gap-1 ml-1">
-          <button
-            onClick={() => advance(7)}
-            disabled={busy}
-            title="Advance demo clock by 7 days"
-            className="px-2 py-0.5 rounded bg-violet-100 hover:bg-violet-200 text-violet-700 font-semibold transition-colors disabled:opacity-50"
-          >
-            +7d
-          </button>
-          <button
-            onClick={() => advance(31)}
-            disabled={busy}
-            title="Fast-forward 31 days (makes response overdue)"
-            className="px-2 py-0.5 rounded bg-violet-600 hover:bg-violet-700 text-white font-semibold transition-colors disabled:opacity-50"
-          >
-            +31d
-          </button>
+          <button onClick={() => advance(7)} disabled={busy} title="Advance 7 days" className={stepBtn}>+7d</button>
+          <button onClick={() => advance(31)} disabled={busy} title="Advance 31 days" className={stepBtn}>+31d</button>
           {isAdvanced && (
-            <button
-              onClick={reset}
-              disabled={busy}
-              title="Reset demo clock to today"
-              className="p-0.5 rounded hover:bg-violet-100 text-violet-500 transition-colors disabled:opacity-50"
-            >
+            <button onClick={reset} disabled={busy} title="Reset to today"
+              className="p-1 rounded text-slate-400 hover:text-slate-700 disabled:opacity-50">
               <RotateCcw size={11} />
             </button>
           )}
@@ -77,65 +59,27 @@ export function DemoTimeControls({ demoNow, onTimeChange, onAdvance, onReset, co
   }
 
   return (
-    <div className="border border-violet-200 rounded-2xl bg-violet-50 p-4">
-      {/* Header */}
-      <div className="flex items-center gap-2 mb-3">
-        <div className="w-6 h-6 rounded-full bg-violet-600 flex items-center justify-center">
-          <Clock size={12} className="text-white" />
-        </div>
-        <span className="text-xs font-bold uppercase tracking-widest text-violet-600">
-          Demo Time Travel
-        </span>
-        <span className="ml-auto text-[10px] text-violet-400 font-medium border border-violet-200 rounded-full px-2 py-0.5">
-          Prototype only
-        </span>
+    <div className="panel p-5">
+      <div className="flex items-center justify-between mb-2">
+        <span className="section-label">Demo time controls</span>
+        <span className="text-[11px] text-slate-400">Prototype only</span>
       </div>
-
-      {/* Current demo date */}
-      <div className="mb-3">
-        <p className="text-[10px] font-semibold text-violet-400 uppercase tracking-wider mb-0.5">
-          Current demo date
+      <p className="text-[11px] text-slate-400 mb-0.5">Current demo date</p>
+      <p className={`text-base font-mono font-medium ${isAdvanced ? 'text-slate-900' : 'text-slate-500'}`}>
+        {displayDate}
+      </p>
+      {isAdvanced && (
+        <p className="text-[11px] text-slate-400 mt-0.5">
+          Deadline calculations use this date instead of today.
         </p>
-        <p className={`text-lg font-bold font-mono ${isAdvanced ? 'text-violet-800' : 'text-slate-500'}`}>
-          {displayDate}
-        </p>
+      )}
+      <div className="flex flex-wrap items-center gap-2 mt-3">
+        <button onClick={() => advance(7)} disabled={busy} className={stepBtn}>+7 days</button>
+        <button onClick={() => advance(30)} disabled={busy} className={stepBtn}>+30 days</button>
+        <button onClick={() => advance(31)} disabled={busy} className={stepBtn}>+31 days</button>
         {isAdvanced && (
-          <p className="text-[10px] text-violet-500 mt-0.5">
-            ⚡ Time is advanced — deadline calculations use this date
-          </p>
-        )}
-      </div>
-
-      {/* Controls */}
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          onClick={() => advance(7)}
-          disabled={busy}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-violet-200 hover:border-violet-400 text-violet-700 text-xs font-semibold transition-colors disabled:opacity-50"
-        >
-          <FastForward size={11} /> +7 days
-        </button>
-        <button
-          onClick={() => advance(30)}
-          disabled={busy}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-violet-200 hover:border-violet-400 text-violet-700 text-xs font-semibold transition-colors disabled:opacity-50"
-        >
-          <FastForward size={11} /> +30 days
-        </button>
-        <button
-          onClick={() => advance(31)}
-          disabled={busy}
-          title="Advance to 31 days — makes response overdue by 1 day"
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold transition-colors disabled:opacity-50"
-        >
-          <FastForward size={11} /> +31 days
-        </button>
-        {isAdvanced && (
-          <button
-            onClick={reset}
-            disabled={busy}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-200 hover:border-slate-300 text-slate-500 text-xs font-semibold transition-colors disabled:opacity-50 ml-auto"
-          >
+          <button onClick={reset} disabled={busy}
+            className="ml-auto flex items-center gap-1.5 px-2 py-1 rounded border border-slate-300 bg-white text-slate-500 text-xs hover:border-slate-400 disabled:opacity-50">
             <RotateCcw size={11} /> Reset time
           </button>
         )}

@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import {
   ArrowRightIcon, ArrowLeftIcon, RefreshCcwIcon,
-  CopyIcon, CheckIcon, InfoIcon, AlertCircleIcon, ZapIcon,
+  CopyIcon, CheckIcon, DownloadIcon, AlertCircleIcon,
 } from 'lucide-react'
 import { ProgressSteps } from '../components/common/ProgressSteps'
+import { Breadcrumb } from '../components/common/Breadcrumb'
+import { AppFooter } from '../components/common/AppFooter'
 import { Spinner } from '../components/common/Spinner'
 import { ErrorMessage } from '../components/common/ErrorMessage'
 import { useWizard } from '../context/WizardContext'
@@ -46,48 +48,51 @@ export default function DraftPage() {
     })
   }
 
-  // Auto-generate on first load
   useEffect(() => {
     if (!state.draftResult) doGenerate()
   }, [])  // eslint-disable-line
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(draftText)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    try {
+      await navigator.clipboard.writeText(draftText)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch { /* clipboard unavailable */ }
+  }
+
+  const handleDownload = () => {
+    const blob = new Blob([draftText], { type: 'text/plain;charset=utf-8' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href     = url
+    a.download = `RTI-request-${(authority?.name ?? 'draft').replace(/\s+/g, '-')}.txt`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   const charColor = overLimit
     ? 'text-red-600'
     : charCount > CHAR_LIMIT * 0.9
-    ? 'text-orange-500'
+    ? 'text-amber-600'
     : 'text-slate-400'
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
-      <ProgressSteps currentStep={4} />
+      <ProgressSteps />
 
-      <div className="max-w-6xl w-full mx-auto px-6 lg:px-8 py-10 animate-slide-up">
-        <div className="flex items-start justify-between flex-wrap gap-3 mb-6">
-          <div>
-            <h2 className="text-2xl font-bold text-slate-800">AI Draft</h2>
-            <p className="text-slate-500 text-sm mt-1">
-              Review and edit your RTI application. It will be sent to{' '}
-              <span className="font-medium text-primary-700">{authority?.name}</span>.
-            </p>
-          </div>
-          <button
-            onClick={doGenerate}
-            disabled={mutation.isPending}
-            className="btn-secondary flex items-center gap-2 text-sm"
-          >
-            <RefreshCcwIcon size={14} /> Regenerate
-          </button>
-        </div>
+      <div className="page animate-slide-up">
+        <Breadcrumb items={[
+          { label: 'Home', to: '/' }, { label: 'Authority', to: '/authority' }, { label: 'Draft' },
+        ]} />
+        <h1 className="page-title">Prepare your RTI request.</h1>
+        <p className="page-subtitle max-w-2xl mb-8">
+          We turned your question into a clear request. Review the wording before moving to filing.
+          It will be addressed to <span className="font-medium text-slate-700">{authority?.name}</span>.
+        </p>
 
         {mutation.isPending && !state.draftResult && (
-          <div className="card flex justify-center py-16">
-            <Spinner size="lg" label="GPT-4o is drafting your RTI application…" />
+          <div className="panel flex justify-center py-16">
+            <Spinner size="lg" label="Preparing your draft…" />
           </div>
         )}
 
@@ -96,104 +101,92 @@ export default function DraftPage() {
         )}
 
         {state.draftResult && !mutation.isPending && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Draft textarea */}
-            <div className="lg:col-span-2 flex flex-col gap-3">
-              <div className="relative">
+          <div className="wizard-grid lg:grid-cols-[minmax(0,1fr)_320px]">
+            {/* Document surface */}
+            <div>
+              <div className="panel overflow-hidden focus-within:border-primary-400 focus-within:ring-2 focus-within:ring-primary-100 transition-colors">
+                <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-slate-200 bg-slate-50">
+                  <span className="eyebrow">RTI application draft</span>
+                  <div className="flex items-center gap-3">
+                    <button onClick={handleCopy} className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-900">
+                      {copied ? <><CheckIcon size={12} className="text-emerald-600" /> Copied</> : <><CopyIcon size={12} /> Copy</>}
+                    </button>
+                    <button onClick={handleDownload} className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-900">
+                      <DownloadIcon size={12} /> Download
+                    </button>
+                    <button onClick={doGenerate} disabled={mutation.isPending}
+                      className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-900 disabled:opacity-50">
+                      <RefreshCcwIcon size={12} /> Regenerate
+                    </button>
+                  </div>
+                </div>
                 <textarea
-                  className="input-base min-h-[480px] resize-y font-mono text-sm leading-relaxed"
+                  className="w-full min-h-[520px] resize-y bg-white px-5 py-5 text-slate-800 text-[15px] leading-7
+                             focus:outline-none"
                   value={draftText}
                   onChange={(e) => setEditedText(e.target.value)}
+                  spellCheck
                 />
+              </div>
+              <div className="flex items-center justify-between mt-2">
+                <span className={`text-xs ${charColor}`}>
+                  {charCount.toLocaleString()} / {CHAR_LIMIT.toLocaleString()} characters
+                </span>
                 {overLimit && (
-                  <div className="absolute bottom-3 left-3 right-3 bg-red-50 border border-red-200 rounded-lg px-3 py-2 flex items-center gap-2">
-                    <AlertCircleIcon size={14} className="text-red-500 shrink-0" />
-                    <span className="text-xs text-red-600">
-                      Exceeds {CHAR_LIMIT.toLocaleString()} character limit. Please shorten the draft.
-                    </span>
-                  </div>
+                  <span className="text-xs text-red-600 flex items-center gap-1.5">
+                    <AlertCircleIcon size={13} /> Over the limit — shorten before continuing.
+                  </span>
                 )}
               </div>
 
-              <div className="flex items-center justify-between">
-                <span className={`text-xs font-mono ${charColor}`}>
-                  {charCount.toLocaleString()} / {CHAR_LIMIT.toLocaleString()} chars
-                </span>
-                <button
-                  onClick={handleCopy}
-                  className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 transition-colors font-medium"
-                >
-                  {copied ? <><CheckIcon size={12} className="text-emerald-500" /> Copied!</> : <><CopyIcon size={12} /> Copy draft</>}
-                </button>
-              </div>
+              <button
+                onClick={() => navigate('/quality-check')}
+                disabled={!state.draftResult || overLimit || mutation.isPending}
+                className="btn-primary w-full mt-6"
+              >
+                Continue to review
+              </button>
+              <button
+                onClick={() => navigate('/authority')}
+                className="block w-full text-center text-sm font-medium text-slate-500 hover:text-slate-800 mt-3"
+              >
+                ← Change authority
+              </button>
+              <p className="text-[13px] text-slate-400 mt-3 text-center">You can edit the draft before filing.</p>
             </div>
 
-            {/* Right panel */}
-            <div className="flex flex-col gap-4">
-              {/* AI explanation */}
+            {/* Context aside */}
+            <aside className="lg:sticky lg:top-24">
+              <div className="panel p-5">
+                <h3 className="section-title">Quality checks</h3>
+                <ul className="mt-3 space-y-1.5">
+                  {[
+                    'Clear record requested',
+                    'Specific period included',
+                    'Correct authority selected',
+                    'Avoids asking for opinion or explanation',
+                  ].map((c) => (
+                    <li key={c} className="flex items-start gap-2 text-sm text-slate-600">
+                      <CheckIcon size={14} className="text-emerald-600 shrink-0 mt-0.5" /> {c}
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-[13px] text-slate-400 mt-3 divider pt-3">
+                  The full validation runs on the next step.
+                </p>
+              </div>
+
               {state.draftResult.explanation && (
-                <div className="card border-l-4 border-primary-500">
-                  <div className="flex items-center gap-2 mb-2">
-                    <ZapIcon size={14} className="text-primary-600" />
-                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                      Why it's phrased this way
-                    </span>
-                  </div>
-                  <p className="text-sm text-slate-600 leading-relaxed">
-                    {state.draftResult.explanation}
-                  </p>
+                <div className="panel p-5 mt-4">
+                  <p className="section-label mb-1.5">About this draft</p>
+                  <p className="text-sm text-slate-600 leading-relaxed">{state.draftResult.explanation}</p>
                 </div>
               )}
-
-              {/* Missing information */}
-              {state.draftResult.missing_information.length > 0 && (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <InfoIcon size={14} className="text-amber-600" />
-                    <span className="text-xs font-semibold text-amber-700 uppercase tracking-wider">
-                      Could strengthen this RTI
-                    </span>
-                  </div>
-                  <ul className="flex flex-col gap-1.5">
-                    {state.draftResult.missing_information.map((m, i) => (
-                      <li key={i} className="text-xs text-amber-700 flex items-start gap-1.5">
-                        <span className="mt-0.5">•</span> {m}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* Authority summary */}
-              <div className="card">
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Filing to</p>
-                <p className="font-semibold text-slate-700 text-sm">{authority?.name}</p>
-                <p className="text-xs text-slate-500 mt-0.5 capitalize">{authority?.jurisdiction} Government</p>
-              </div>
-
-              {state.draftResult.used_fallback && (
-                <p className="text-xs text-slate-400 text-center">⚡ Using cached draft (AI unavailable)</p>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Navigation */}
-        {(state.draftResult || apiError) && (
-          <div className="flex gap-3 mt-6">
-            <button onClick={() => navigate('/authority')} className="btn-secondary flex items-center gap-2">
-              <ArrowLeftIcon size={16} /> Back
-            </button>
-            <button
-              onClick={() => navigate('/quality-check')}
-              disabled={!state.draftResult || overLimit || mutation.isPending}
-              className="btn-primary flex-1 flex items-center justify-center gap-2"
-            >
-              Run Quality Check <ArrowRightIcon size={16} />
-            </button>
+            </aside>
           </div>
         )}
       </div>
+      <AppFooter />
     </div>
   )
 }

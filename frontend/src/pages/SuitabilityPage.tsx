@@ -1,10 +1,8 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import {
-  CheckCircle2Icon, XCircleIcon, AlertTriangleIcon,
-  ArrowRightIcon, ArrowLeftIcon, LightbulbIcon, MapPinIcon,
-} from 'lucide-react'
 import { ProgressSteps } from '../components/common/ProgressSteps'
+import { Breadcrumb } from '../components/common/Breadcrumb'
+import { AppFooter } from '../components/common/AppFooter'
 import { useWizard } from '../context/WizardContext'
 import { CATEGORY_LABELS } from '../types/rti'
 
@@ -12,117 +10,180 @@ export default function SuitabilityPage() {
   const navigate = useNavigate()
   const { state } = useWizard()
   const result = state.intentResult
+  const [branch, setBranch] = useState<null | 'fix' | 'rti'>(null)
 
   useEffect(() => { if (!result) navigate('/') }, [result, navigate])
   if (!result) return null
 
-  const { is_rti_suitable, jurisdiction, category, suitability_explanation, reformulation_suggestion } = result
+  const {
+    is_rti_suitable, jurisdiction, category,
+    suitability_explanation, reformulation_suggestion, grievance,
+  } = result
+  const isState = jurisdiction === 'state'
 
-  const isState   = jurisdiction === 'state'
-  const isSuitable = is_rti_suitable && !isState
+  // ── Grievance ────────────────────────────────────────────────────────────
+  if (grievance?.detected && branch !== 'rti') {
+    return (
+      <div className="min-h-screen flex flex-col bg-slate-50">
+        <ProgressSteps />
+        <div className="page animate-slide-up">
+          <Breadcrumb items={[
+            { label: 'Home', to: '/' }, { label: 'Start a request', to: '/' },
+            { label: 'Suitability' }, { label: 'Grievance' },
+          ]} />
+          <h1 className="page-title">This looks like a grievance, not an RTI.</h1>
+          <p className="page-subtitle max-w-2xl">
+            Your goal appears to be getting a problem fixed rather than obtaining existing government
+            records.
+          </p>
 
-  const statusConfig = isSuitable
-    ? { icon: <CheckCircle2Icon size={40} />, color: 'emerald', label: 'RTI Suitable', bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700' }
+          <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px] items-start mt-8">
+            <div>
+              <div className="panel p-6">
+                <p className="eyebrow">Grievance route</p>
+                <h2 className="section-title mt-2">Get the problem fixed</h2>
+                <p className="text-[15px] text-slate-600 mt-3 leading-relaxed">
+                  {grievance.fix_route_explanation}
+                </p>
+                <p className="text-[15px] text-slate-600 mt-3 leading-relaxed">{grievance.rti_reframe}</p>
+                <p className="text-[13px] text-slate-400 mt-4">
+                  We are not submitting a grievance on your behalf. This is guidance only.
+                </p>
+              </div>
+              <button onClick={() => navigate('/')} className="text-sm font-medium text-slate-500 hover:text-slate-800 mt-4">
+                ← Back and change my request
+              </button>
+            </div>
+
+            <aside>
+              <div className="panel p-6">
+                <h3 className="section-title">Suggested route</h3>
+                <p className="text-sm text-slate-600 mt-2 leading-relaxed">
+                  Use the appropriate public grievance channel for the department concerned. The Centre
+                  runs CPGRAMS (pgportal.gov.in) and most states run their own portals.
+                </p>
+              </div>
+              <button
+                onClick={() => setBranch('rti')}
+                className="btn-primary w-full mt-4"
+              >
+                Continue with RTI anyway
+              </button>
+            </aside>
+          </div>
+        </div>
+        <AppFooter />
+      </div>
+    )
+  }
+
+  // ── Suitability verdict ──────────────────────────────────────────────────
+  const cameFromGrievance = grievance?.detected && branch === 'rti'
+  const isSuitable = (is_rti_suitable || cameFromGrievance) && !isState
+
+  const verdict = isSuitable
+    ? { eyebrow: 'RTI suitability', title: 'Yes — this can be answered through RTI.' }
     : isState
-    ? { icon: <AlertTriangleIcon size={40} />, color: 'orange', label: 'State Government Matter', bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-700' }
-    : { icon: <XCircleIcon size={40} />, color: 'red', label: 'Not RTI Suitable', bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700' }
+    ? { eyebrow: 'State jurisdiction', title: 'This concerns a state government authority.' }
+    : { eyebrow: 'RTI suitability', title: 'This may not be answerable through RTI.' }
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
-      <ProgressSteps currentStep={2} />
+      <ProgressSteps />
+      <div className="page animate-slide-up">
+        <Breadcrumb items={[
+          { label: 'Home', to: '/' }, { label: 'Start a request', to: '/' }, { label: 'Suitability' },
+        ]} />
+        <h1 className="page-title">Is an RTI the right route?</h1>
+        <p className="page-subtitle max-w-3xl">You asked: {result.original_query}</p>
 
-      <div className="max-w-4xl w-full mx-auto px-6 lg:px-8 py-10 flex flex-col gap-6 animate-slide-up">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-800">Suitability Check</h2>
-          <p className="text-slate-500 text-sm mt-1">
-            We've analysed your query against RTI Act 2005 criteria.
-          </p>
-        </div>
-
-        {/* Query echo */}
-        <div className="bg-white rounded-xl border border-slate-200 px-4 py-3">
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Your query</p>
-          <p className="text-slate-700 text-sm leading-relaxed">"{result.original_query}"</p>
-        </div>
-
-        {/* Verdict card */}
-        <div className={`rounded-2xl border-2 ${statusConfig.bg} ${statusConfig.border} p-6`}>
-          <div className="flex items-start gap-4">
-            <div className={`${statusConfig.text} mt-0.5 shrink-0`}>{statusConfig.icon}</div>
-            <div>
-              <div className={`font-bold text-xl ${statusConfig.text}`}>{statusConfig.label}</div>
-              <p className="text-slate-600 text-sm mt-2 leading-relaxed">{suitability_explanation}</p>
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px] items-start mt-8">
+          <div>
+            <div className="panel p-6">
+              <p className="eyebrow">{verdict.eyebrow}</p>
+              <h2 className="text-xl font-bold text-slate-900 mt-2">{verdict.title}</h2>
+              <p className="text-[15px] text-slate-600 mt-3 leading-relaxed">
+                {cameFromGrievance
+                  ? 'You chose to ask for records on this issue. The request will be prepared as an RTI for what the authority has recorded and done.'
+                  : suitability_explanation}
+              </p>
+              {isSuitable && (
+                <p className="text-sm font-semibold text-primary-800 mt-5">
+                  Next: identify the authority that holds these records →
+                </p>
+              )}
             </div>
-          </div>
-        </div>
 
-        {/* Category + Jurisdiction */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="card">
-            <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-1">Category</p>
-            <p className="font-semibold text-slate-700">{CATEGORY_LABELS[category]}</p>
-          </div>
-          <div className="card flex items-start gap-2">
-            <MapPinIcon size={16} className={isState ? 'text-orange-500 mt-0.5' : 'text-primary-600 mt-0.5'} />
-            <div>
-              <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-1">Jurisdiction</p>
-              <p className={`font-semibold ${isState ? 'text-orange-600' : 'text-primary-700'}`}>
-                {jurisdiction === 'central' ? 'Central Government' : 'State Government'}
+            {isState && (
+              <div className="panel p-6 mt-4">
+                <p className="section-title">Filing a state RTI</p>
+                <p className="text-sm text-slate-600 mt-2 leading-relaxed">
+                  State RTIs are filed with your state's RTI portal or the State Public Information
+                  Officer. The request will still be prepared here — download it and submit through
+                  your state's channel.
+                </p>
+              </div>
+            )}
+
+            {reformulation_suggestion && (!is_rti_suitable || cameFromGrievance) && (
+              <div className="panel p-6 mt-4">
+                <p className="section-title">Suggested wording</p>
+                <p className="text-sm text-slate-600 mt-2 leading-relaxed">{reformulation_suggestion}</p>
+              </div>
+            )}
+
+            <div className="mt-6">
+              <p className="font-semibold text-slate-900">Need something fixed instead?</p>
+              <p className="text-sm text-slate-500 mt-1 leading-relaxed max-w-lg">
+                Choose the grievance path when the goal is to get a problem resolved rather than obtain
+                information.
               </p>
             </div>
           </div>
-        </div>
 
-        {/* State RTI guidance */}
-        {isState && (
-          <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
-            <div className="flex gap-3">
-              <LightbulbIcon className="text-orange-500 shrink-0 mt-0.5" size={18} />
-              <div>
-                <p className="font-semibold text-orange-800 text-sm">How to file a State RTI</p>
-                <p className="text-orange-700 text-sm mt-1 leading-relaxed">
-                  State government RTIs must be filed with your state's RTI portal or physically
-                  to the State Public Information Officer (SPIO). We'll still draft the application
-                  for you — you can download and submit it through your state's channel.
-                </p>
+          <aside>
+            <div className="panel p-6">
+              <h3 className="section-title">What RTI is for</h3>
+              <p className="text-sm text-slate-600 mt-2 leading-relaxed">
+                RTI is useful for obtaining existing records, documents, figures, orders, reports, and
+                other information held by public authorities.
+              </p>
+              <div className="divider mt-4 pt-4 grid grid-cols-2 gap-3">
+                <div>
+                  <p className="section-label">Subject</p>
+                  <p className="text-sm font-medium text-slate-800 mt-1">{CATEGORY_LABELS[category]}</p>
+                </div>
+                <div>
+                  <p className="section-label">Level</p>
+                  <p className="text-sm font-medium text-slate-800 mt-1">
+                    {jurisdiction === 'central' ? 'Central' : 'State'}
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
-        )}
 
-        {/* Reformulation suggestion */}
-        {!is_rti_suitable && reformulation_suggestion && (
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-            <div className="flex gap-3">
-              <LightbulbIcon className="text-blue-500 shrink-0 mt-0.5" size={18} />
-              <div>
-                <p className="font-semibold text-blue-800 text-sm">Suggestion</p>
-                <p className="text-blue-700 text-sm mt-1 leading-relaxed">{reformulation_suggestion}</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Navigation */}
-        <div className="flex gap-3">
-          <button onClick={() => navigate('/')} className="btn-secondary flex items-center gap-2">
-            <ArrowLeftIcon size={16} /> Back
-          </button>
-          <button
-            onClick={() => navigate('/authority')}
-            className="btn-primary flex-1 flex items-center justify-center gap-2"
-          >
-            {isSuitable ? 'Continue to Authority' : 'Draft Anyway'}
-            <ArrowRightIcon size={16} />
-          </button>
+            <button onClick={() => navigate('/authority')} className="btn-primary w-full mt-4">
+              {isSuitable ? 'Continue to authority' : 'Continue anyway'}
+            </button>
+            {grievance?.detected ? (
+              <button
+                onClick={() => setBranch(null)}
+                className="block w-full text-center text-sm font-medium text-primary-800 hover:underline mt-3"
+              >
+                Get the problem fixed →
+              </button>
+            ) : (
+              <button
+                onClick={() => navigate('/')}
+                className="block w-full text-center text-sm font-medium text-slate-500 hover:text-slate-800 mt-3"
+              >
+                ← Change my request
+              </button>
+            )}
+          </aside>
         </div>
-
-        {result.used_fallback && (
-          <p className="text-xs text-center text-slate-400">
-            ⚡ Using cached analysis (AI unavailable)
-          </p>
-        )}
       </div>
+      <AppFooter />
     </div>
   )
 }

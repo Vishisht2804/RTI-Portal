@@ -3,10 +3,10 @@
  * Rendered on the Dashboard so reviewers see it without reading code.
  */
 const REAL: { label: string; detail: string }[] = [
-  { label: 'AI intent analysis', detail: 'Real GPT-4o-mini; rehearsed deterministic fallback when no API key is set' },
-  { label: 'RTI suitability & jurisdiction', detail: 'Deterministic rules engine — central vs state, suitable vs not' },
-  { label: 'Authority recommendation', detail: 'Keyword + category scoring over 35 curated Indian authorities' },
-  { label: '5 draft quality checks', detail: 'Deterministic — authority, jurisdiction, specificity, character limit, information request' },
+  { label: 'Intent analysis', detail: 'Deterministic signal extraction from the request text' },
+  { label: 'Suitability & jurisdiction', detail: 'Rules engine — central vs state, suitable vs not' },
+  { label: 'Authority recommendation', detail: 'Keyword and category scoring over a curated list of authorities' },
+  { label: 'Five request checks', detail: 'Authority, jurisdiction, specificity, character limit, information request' },
 ]
 
 const SIMULATED: { label: string; detail: string }[] = [
@@ -18,21 +18,16 @@ const SIMULATED: { label: string; detail: string }[] = [
 
 export function DisclosureCard() {
   return (
-    <div className="card mb-8">
-      <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1">
-        Transparency
-      </p>
-      <h2 className="text-base font-bold text-slate-800 mb-4">What works vs what is mocked</h2>
+    <div className="panel p-5 sm:p-6 mb-6">
+      <p className="section-label mb-3">What is real and what is simulated</p>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         <div>
-          <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wider mb-2">
-            ✅ Real / deterministic
-          </p>
+          <p className="text-xs font-medium text-slate-500 mb-2">Real / deterministic</p>
           <ul className="space-y-2">
             {REAL.map((r) => (
               <li key={r.label} className="text-sm">
-                <span className="font-semibold text-slate-700">{r.label}</span>
+                <span className="font-medium text-slate-700">{r.label}</span>
                 <span className="text-slate-500"> — {r.detail}</span>
               </li>
             ))}
@@ -40,13 +35,11 @@ export function DisclosureCard() {
         </div>
 
         <div>
-          <p className="text-xs font-semibold text-amber-700 uppercase tracking-wider mb-2">
-            ⚙️ Simulated
-          </p>
+          <p className="text-xs font-medium text-slate-500 mb-2">Simulated</p>
           <ul className="space-y-2">
             {SIMULATED.map((s) => (
               <li key={s.label} className="text-sm">
-                <span className="font-semibold text-slate-700">{s.label}</span>
+                <span className="font-medium text-slate-700">{s.label}</span>
                 <span className="text-slate-500"> — {s.detail}</span>
               </li>
             ))}
@@ -55,8 +48,8 @@ export function DisclosureCard() {
       </div>
 
       <p className="text-xs text-slate-400 mt-4 pt-3 border-t border-slate-100">
-        Demo state is stored in your browser (localStorage). Use “Demo reset” above to start over.
-        Works offline / on slow connections — pages are lightweight and nothing streams.
+        Demo state is stored in your browser. Use “Reset demo” to start over. Pages are lightweight
+        and work on slow connections.
       </p>
     </div>
   )

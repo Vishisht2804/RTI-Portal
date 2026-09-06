@@ -1,62 +1,77 @@
 import { Link, useLocation } from 'react-router-dom'
-import { LayoutDashboard, PlusCircle, User } from 'lucide-react'
 import { ThemeToggle } from './ThemeToggle'
 
 /**
- * Shared application header — used by both Track A and Track B.
- * Replaces the standalone FilingHeader in filing.tsx and the logo block in ProgressSteps.
+ * Global header — full-width institutional bar. Two-line brand on the left,
+ * primary navigation, demo/identity on the right. Thin blue rule above.
  */
 export function AppHeader() {
   const { pathname } = useLocation()
 
-  function navClass(path: string) {
-    const active = pathname === path || (path !== '/' && pathname.startsWith(path))
-    return [
-      'flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-lg transition-colors duration-150',
-      active
-        ? 'bg-primary-50 text-primary-800'
-        : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50',
-    ].join(' ')
-  }
+  const NAV: { label: string; to: string; match: (p: string) => boolean }[] = [
+    { label: 'Home', to: '/', match: (p) => p === '/' },
+    { label: 'My RTIs', to: '/filing/dashboard', match: (p) => p.startsWith('/filing') },
+    { label: 'How it works', to: '/how-it-works', match: (p) => p === '/how-it-works' },
+    { label: 'Help', to: '/help', match: (p) => p === '/help' },
+  ]
 
   return (
-    <div className="w-full bg-white border-b border-slate-100 shadow-sm sticky top-0 z-20">
-      {/* Indian flag tricolour accent */}
-      <div className="tricolour-bar" />
+    <header className="w-full sticky top-0 z-30">
+      <div className="h-1 bg-primary-800" />
+      <div className="bg-white border-b border-slate-200">
+        <div className="shell-wide h-16 flex items-center gap-8">
+          <Link to="/" className="no-underline shrink-0 leading-none">
+            <span className="block font-bold text-[18px] text-primary-800 tracking-tight">RTI Navigator</span>
+            <span className="block text-[11px] text-slate-400 mt-0.5 tracking-wide">Right to Information</span>
+          </Link>
 
-      <div className="max-w-7xl mx-auto px-6 lg:px-8 py-3 flex items-center justify-between">
-        {/* Logo */}
-        <Link to="/filing/dashboard" className="flex items-center gap-2 no-underline">
-          <div className="w-8 h-8 bg-primary-800 rounded-lg flex items-center justify-center shrink-0">
-            <span className="text-white font-bold text-sm">R</span>
+          <nav className="hidden md:flex items-center gap-2 flex-1">
+            {NAV.map((item) => {
+              const active = item.match(pathname)
+              return (
+                <Link
+                  key={item.label}
+                  to={item.to}
+                  aria-current={active ? 'page' : undefined}
+                  className={[
+                    'text-[15px] px-3.5 py-2 rounded-md transition-colors duration-150',
+                    active
+                      ? 'text-slate-900 font-semibold bg-slate-100'
+                      : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50',
+                  ].join(' ')}
+                >
+                  {item.label}
+                </Link>
+              )
+            })}
+          </nav>
+
+          <div className="flex items-center gap-3 shrink-0 ml-auto md:ml-0">
+            <ThemeToggle />
+            <span className="hidden sm:inline text-[11px] font-bold tracking-[0.12em] text-primary-700">DEMO</span>
+            <span className="hidden lg:inline text-sm text-slate-700">Triambak</span>
           </div>
-          <span className="font-bold text-primary-900 text-lg tracking-tight">RTI Navigator</span>
-        </Link>
-
-        {/* Nav */}
-        <nav className="flex items-center gap-1">
-          <Link to="/" className={navClass('/__new__')}>
-            <PlusCircle size={14} />
-            <span className="hidden sm:inline">New RTI</span>
-          </Link>
-          <Link to="/filing/dashboard" className={navClass('/filing/dashboard')}>
-            <LayoutDashboard size={14} />
-            <span className="hidden sm:inline">Dashboard</span>
-          </Link>
-          <Link to="/filing/profile" className={navClass('/filing/profile')}>
-            <User size={14} />
-            <span className="hidden sm:inline">Profile</span>
-          </Link>
-        </nav>
-
-        {/* Theme toggle + demo badge */}
-        <div className="flex items-center gap-2 ml-2">
-          <ThemeToggle />
-          <span className="hidden md:inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-slate-400 border border-slate-200 rounded-full px-2.5 py-1">
-            Demo Mode
-          </span>
         </div>
+
+        {/* Compact nav row for small screens */}
+        <nav className="md:hidden shell-wide flex items-center gap-1.5 overflow-x-auto border-t border-slate-100 py-2">
+          {NAV.map((item) => {
+            const active = item.match(pathname)
+            return (
+              <Link
+                key={item.label}
+                to={item.to}
+                className={[
+                  'text-sm px-3 py-1.5 rounded-md whitespace-nowrap transition-colors',
+                  active ? 'text-slate-900 font-semibold bg-slate-100' : 'text-slate-500',
+                ].join(' ')}
+              >
+                {item.label}
+              </Link>
+            )
+          })}
+        </nav>
       </div>
-    </div>
+    </header>
   )
 }

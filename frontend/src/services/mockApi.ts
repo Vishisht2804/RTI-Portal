@@ -18,7 +18,7 @@ import type {
 } from '../types/rti'
 import {
   DEMO_OTP, PAYMENT_AMOUNT,
-  addStatusEvent, findRti, nextId, registrationNumber, resetState, seedReadyToFileRti,
+  addStatusEvent, appealReferenceNumber, findRti, nextId, registrationNumber, resetState, seedReadyToFileRti,
   serializeRtiDetail, serializeRtiListItem, transition, withState,
   type DemoRti, type RtiStatus, type FirstAppeal,
 } from './demo/state'
@@ -60,122 +60,66 @@ const DRAFT_EXPLANATION =
   "CPIO to locate and provide the exact records you need. Asking for 'certified copies' is " +
   'the correct RTI phrasing.'
 
-interface MockAuthority {
-  authority_id: number
-  name: string
-  jurisdiction: 'central' | 'state'
-  category: string
-  description: string
-}
-
-// Stable subset of `backend/app/db/seed.py`.
-const MOCK_AUTHORITIES: MockAuthority[] = [
-  { authority_id: 1, name: 'Ministry of Health and Family Welfare', jurisdiction: 'central', category: 'health', description: 'Apex body for health policy, national health programs, AIIMS, and central hospitals.' },
-  { authority_id: 2, name: 'Central Drugs Standard Control Organisation (CDSCO)', jurisdiction: 'central', category: 'health', description: 'Regulates drugs, cosmetics, medical devices, and clinical trials.' },
-  { authority_id: 3, name: 'Ministry of Education', jurisdiction: 'central', category: 'education', description: 'Oversees school and higher education policy, IITs, NITs, UGC, CBSE.' },
-  { authority_id: 5, name: 'Ministry of Finance', jurisdiction: 'central', category: 'finance', description: 'Manages union budget, taxation, banking regulation, and economic policy.' },
-  { authority_id: 9, name: 'Ministry of Railways (Indian Railways)', jurisdiction: 'central', category: 'infrastructure', description: 'Operates and plans Indian Railways network — trains, tracks, stations.' },
-  { authority_id: 11, name: 'National Highways Authority of India (NHAI)', jurisdiction: 'central', category: 'infrastructure', description: 'Develops and maintains national highway network.' },
-  { authority_id: 15, name: 'Ministry of Defence', jurisdiction: 'central', category: 'defence', description: 'Defence forces, DRDO, defence procurement and policy.' },
-  { authority_id: 25, name: 'Ministry of Electronics and Information Technology (MeitY)', jurisdiction: 'central', category: 'technology', description: 'Digital India, IT policy, data protection, cybersecurity, Aadhaar.' },
-  { authority_id: 31, name: 'Karnataka Department of Health and Family Welfare', jurisdiction: 'state', category: 'health', description: 'Karnataka state health department — district hospitals, PHCs, state health schemes.' },
-  { authority_id: 32, name: 'Bruhat Bengaluru Mahanagara Palike (BBMP)', jurisdiction: 'state', category: 'infrastructure', description: 'Bengaluru civic body — roads, drainage, waste, property tax, building permits.' },
-  { authority_id: 33, name: 'Karnataka Department of Education', jurisdiction: 'state', category: 'education', description: 'Karnataka school education, SSLC, PUC, teacher recruitment.' },
-  { authority_id: 35, name: 'Karnataka Public Works Department (PWD)', jurisdiction: 'state', category: 'infrastructure', description: 'Builds and maintains state roads, bridges, and government buildings in Karnataka.' },
-]
-
-function pickAuthorities(
-  category: string,
-  jurisdiction: 'central' | 'state',
-): { primary: AuthorityResult; alternatives: AuthorityResult[] } {
-  const pool = MOCK_AUTHORITIES.filter((a) => a.jurisdiction === jurisdiction)
-  const inScope = pool.length ? pool : MOCK_AUTHORITIES
-  const primarySrc =
-    inScope.find((a) => a.category === category) ?? inScope[0]
-  const altSrc = inScope.filter((a) => a.authority_id !== primarySrc.authority_id).slice(0, 2)
-
-  const toResult = (a: MockAuthority, confidence: AuthorityResult['confidence']): AuthorityResult => ({
-    authority_id: a.authority_id,
-    name: a.name,
-    jurisdiction: a.jurisdiction,
-    category: a.category as AuthorityResult['category'],
-    description: a.description,
-    reason:
-      confidence === 'high'
-        ? `Best match for a ${a.category} query in the ${a.jurisdiction} jurisdiction.`
-        : `Alternative ${a.jurisdiction} authority that may also hold relevant records.`,
-    confidence,
-  })
-
-  return {
-    primary: toResult(primarySrc, primarySrc.category === category ? 'high' : 'medium'),
-    alternatives: altSrc.map((a) => toResult(a, 'low')),
-  }
-}
+import { analyzeQuery, scoreAuthorities, detectAmbiguity } from './demo/routing'
 
 export async function analyzeIntent(req: IntentRequest): Promise<IntentResponse> {
   await delay()
-  const q = req.text.toLowerCase()
-  const isState = q.includes('karnataka') || q.includes('state')
-  const isGrievance =
-    /why hasn'?t|why has not|\bbuild\b|\bfix\b|\brepair\b/.test(q)
+  const s = analyzeQuery(req.text)
 
-  if (isGrievance) {
+  const jurisdiction = s.jurisdiction
+  const categoryWord = s.category === 'other' ? 'the requested subject' : s.category.replace('_', ' ')
+
+  // ── Grievance branch — a complaint, not a records request ──────────────────
+  if (s.isGrievance && !s.isInformationRequest) {
     return {
       is_rti: false,
-      category: 'infrastructure',
-      jurisdiction_hint: 'central',
-      summary:
-        'Query appears to be a grievance about government inaction rather than an information request.',
-      entities: ['hospital'],
-      time_period: null,
-      missing_information: ['specific location', 'relevant authority', 'time period'],
+      category: s.category === 'other' ? 'infrastructure' : s.category,
+      jurisdiction_hint: jurisdiction,
+      summary: `This reads as a request to get something fixed (${categoryWord}), not a request for records.`,
+      entities: s.entities,
+      time_period: s.timePeriod,
+      missing_information: [],
       original_query: req.text,
-      jurisdiction: 'central',
+      jurisdiction,
       is_rti_suitable: false,
       suitability_explanation:
-        'This reads as a grievance about government inaction rather than a request for existing records. The RTI Act covers access to information, not demands for action.',
+        'The RTI Act gives you access to information the government already holds — it cannot compel an authority to take an action. This query asks for an action.',
       reformulation_suggestion:
-        "Rephrase as a request for records — e.g. 'Provide copies of all sanction orders, work orders, and inspection reports for the project between <start date> and <end date>.'",
-      used_fallback: true,
+        'Ask for records instead — for example: "Provide copies of all complaints received, work orders issued, and inspection reports for this location between <start date> and <end date>, and the current status of each."',
+      used_fallback: false,
+      grievance: {
+        detected: true,
+        fix_route_explanation:
+          'To get the problem itself fixed, a public grievance is the right channel — the Centre runs CPGRAMS (pgportal.gov.in) and most states run their own grievance portals. RTI Navigator does not file grievances for you; this is guidance only.',
+        rti_reframe:
+          'RTI is still useful here: asking what the authority has recorded and done about the problem often gets it moving, and the reply is on the record.',
+      },
     }
   }
 
-  if (isState) {
-    return {
-      is_rti: true,
-      category: 'health',
-      jurisdiction_hint: 'state',
-      summary: 'Seeking information about Karnataka state government hospital expenditure.',
-      entities: ['Karnataka', 'state hospitals'],
-      time_period: null,
-      missing_information: [],
-      original_query: req.text,
-      jurisdiction: 'state',
-      is_rti_suitable: true,
-      suitability_explanation:
-        'This concerns a State Government authority. RTI still applies, but the application must be filed with the State Public Information Officer or the relevant state RTI portal.',
-      reformulation_suggestion: null,
-      used_fallback: true,
-    }
-  }
+  const suitable = true
+  const summary = s.underspecified
+    ? `Seeking ${categoryWord} information${s.entities.length ? ' related to ' + s.entities[0] : ''} — one detail is still needed to route it.`
+    : `Seeking ${categoryWord} information${s.entities.length ? ' about ' + s.entities.slice(0, 2).join(' and ') : ''}${s.timePeriod ? ` for ${s.timePeriod}` : ''}.`
 
   return {
     is_rti: true,
-    category: 'health',
-    jurisdiction_hint: 'central',
-    summary:
-      "Seeking information about the Ministry of Health's budget allocation and expenditure on government hospitals in 2025.",
-    entities: ['Ministry of Health and Family Welfare', 'government hospitals'],
-    time_period: '2025',
-    missing_information: [],
+    category: s.category,
+    jurisdiction_hint: jurisdiction,
+    summary,
+    entities: s.entities,
+    time_period: s.timePeriod,
+    missing_information: s.underspecified ? ['which specific body / scheme the request concerns'] : [],
     original_query: req.text,
-    jurisdiction: 'central',
-    is_rti_suitable: true,
+    jurisdiction,
+    is_rti_suitable: suitable,
     suitability_explanation:
-      'This query seeks records held by a central public authority and is well-suited to an RTI application.',
+      jurisdiction === 'state'
+        ? 'This concerns a State Government authority. RTI applies, but the application is filed with the State Public Information Officer or the state RTI portal.'
+        : 'This asks for records held by a public authority and is well-suited to an RTI application.',
     reformulation_suggestion: null,
-    used_fallback: true,
+    used_fallback: false,
+    grievance: null,
   }
 }
 
@@ -183,8 +127,28 @@ export async function recommendAuthority(
   req: AuthorityRecommendRequest,
 ): Promise<AuthorityRecommendResponse> {
   await delay()
-  const jurisdiction = req.jurisdiction === 'state' ? 'state' : 'central'
-  return pickAuthorities(req.category, jurisdiction)
+  const s = analyzeQuery(req.original_query || '')
+  // Honour the jurisdiction the rules engine already decided
+  if (req.jurisdiction === 'state' || req.jurisdiction === 'central') s.jurisdiction = req.jurisdiction
+  if (req.category && req.category !== 'other') s.category = req.category
+
+  const scored = scoreAuthorities(s, req.original_query || '')
+  const ambiguity = detectAmbiguity(s, scored, req.original_query || '')
+
+  // When the query is under-specified, no single authority should look certain
+  // until the user answers the clarification. Keep displayed scores comparable.
+  if (s.underspecified) {
+    for (const a of scored) {
+      a.confidence_score = Math.min(a.confidence_score, 66)
+      a.confidence_level = a.confidence_score >= 50 ? 'medium' : 'low'
+      a.confidence = a.confidence_level
+    }
+  }
+
+  const primary = scored[0]
+  const alternatives = scored.slice(1)
+
+  return { primary, alternatives, ambiguity }
 }
 
 export async function generateDraft(
@@ -517,6 +481,9 @@ export async function mockRequest(path: string, options: MockRequestOptions = {}
           title: `First Appeal — ${rti.authority_name}`,
           reason: `No response received within 30 days of filing (${overdueDays} day${overdueDays !== 1 ? 's' : ''} overdue).`,
           generated_text: generatedText,
+          // Preserve an earlier submission if the user re-generates after submitting.
+          submitted_at: rti.first_appeal?.submitted_at ?? null,
+          appeal_reference_number: rti.first_appeal?.appeal_reference_number ?? null,
         }
         rti.first_appeal = appeal
         return { first_appeal: appeal }
@@ -527,6 +494,29 @@ export async function mockRequest(path: string, options: MockRequestOptions = {}
         if (!rti.first_appeal) throw new Error('No appeal has been generated yet.')
         rti.first_appeal = { ...rti.first_appeal, generated_text: String(body.generated_text ?? '') }
         return { first_appeal: rti.first_appeal }
+      }
+
+      if (sub === '/appeal/submit' && method === 'POST') {
+        // Simulated First Appeal submission. The RTI status stays AWAITING_RESPONSE;
+        // only fields inside first_appeal change.
+        if (!rti.first_appeal) {
+          throw new Error('Generate the First Appeal before submitting it.')
+        }
+        if (rti.first_appeal.submitted_at) {
+          // Idempotent — already submitted.
+          return { first_appeal: rti.first_appeal, simulated: true }
+        }
+        rti.first_appeal = {
+          ...rti.first_appeal,
+          submitted_at: getDemoNow(demoNow),
+          appeal_reference_number: appealReferenceNumber(rti.id),
+        }
+        return {
+          first_appeal: rti.first_appeal,
+          simulated: true,
+          message:
+            'Prototype First Appeal submission only. No real appellate authority or government system was contacted.',
+        }
       }
 
       throw new Error(`Mock API: unhandled route ${method} ${path}`)

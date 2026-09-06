@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { User, Mail, Phone, Edit2, Check, ArrowLeft } from 'lucide-react'
 import { AppHeader } from '../components/common/AppHeader'
+import { AppFooter } from '../components/common/AppFooter'
 
 const DEFAULT_PROFILE = {
   name:  'Demo Applicant',
@@ -22,18 +23,15 @@ export default function ProfilePage() {
     <div className="min-h-screen flex flex-col bg-slate-50">
       <AppHeader />
 
-      <div className="max-w-4xl w-full mx-auto px-6 lg:px-8 py-10 animate-slide-up">
+      <div className="page animate-slide-up max-w-[900px]">
         <Link to="/filing/dashboard" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 mb-6">
-          <ArrowLeft size={14} /> Back to Dashboard
+          <ArrowLeft size={14} /> Back to My RTIs
         </Link>
 
-        <div className="mb-6">
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1">Account</p>
-          <h1 className="text-2xl font-bold text-slate-800">Profile</h1>
-        </div>
+        <h1 className="page-title mb-6">Profile</h1>
 
         {/* Avatar + name */}
-        <div className="card mb-4 flex items-center gap-5">
+        <div className="panel p-5 sm:p-6 mb-4 flex items-center gap-5">
           <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center shrink-0">
             <User size={28} className="text-primary-700" />
           </div>
@@ -45,9 +43,9 @@ export default function ProfilePage() {
         </div>
 
         {/* Details */}
-        <div className="card mb-4">
+        <div className="panel p-5 sm:p-6 mb-4">
           <div className="flex items-center justify-between mb-5">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Personal Information</p>
+            <p className="section-label">Personal information</p>
             {!editing && (
               <button
                 onClick={startEdit}
@@ -62,9 +60,7 @@ export default function ProfilePage() {
             <div className="space-y-4">
               {(['name', 'email', 'phone'] as const).map((key) => (
                 <div key={key}>
-                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 capitalize">
-                    {key}
-                  </label>
+                  <label className="block section-label mb-1.5 capitalize">{key}</label>
                   <input
                     className="input-base"
                     value={draft[key]}
@@ -87,10 +83,11 @@ export default function ProfilePage() {
         </div>
 
         {/* Demo note */}
-        <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 text-sm text-blue-700">
+        <p className="text-[13px] text-slate-400 leading-relaxed">
           This is a demo account. Profile changes are local only and reset on page refresh.
-        </div>
+        </p>
       </div>
+      <AppFooter />
     </div>
   )
 }

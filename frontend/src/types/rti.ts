@@ -9,6 +9,15 @@ export type RTICategory =
   | 'environment' | 'agriculture' | 'defence' | 'social_welfare'
   | 'law_order' | 'technology' | 'other'
 
+/** Grievance branch info — present when the query reads as a complaint, not a records request. */
+export interface GrievanceInfo {
+  detected: boolean
+  /** Plain explanation of the "get it fixed" route (no real API is integrated). */
+  fix_route_explanation: string
+  /** How the same concern can be turned into a records request. */
+  rti_reframe: string
+}
+
 export interface IntentResponse {
   is_rti: boolean
   category: RTICategory
@@ -24,6 +33,8 @@ export interface IntentResponse {
   suitability_explanation: string
   reformulation_suggestion: string | null
   used_fallback: boolean
+  /** Present only when the query is a grievance rather than an information request. */
+  grievance: GrievanceInfo | null
 }
 
 // ─── Authority ────────────────────────────────────────────────────────────────
@@ -43,11 +54,41 @@ export interface AuthorityResult {
   description: string | null
   reason: string
   confidence: 'high' | 'medium' | 'low'
+  // ─── Explainable routing (Track 1) ──────────────────────────────────────────
+  /** 0–100 match-confidence score from the deterministic demo scoring model. */
+  confidence_score: number
+  /** Bucketed score. Mirrors `confidence` but derived from `confidence_score`. */
+  confidence_level: 'high' | 'medium' | 'low'
+  /** 3–5 concrete, human-readable reasons that add up to the score shown. */
+  reasoning: string[]
+  /** Keywords / entities from the query that matched this authority. */
+  matched_signals: string[]
+}
+
+/** One answer to a clarification question, with the authority it points to. */
+export interface AmbiguityOption {
+  id: string
+  label: string
+  hint?: string
+  /** Authority ids this option favours (first is the resolved primary). */
+  authority_ids: number[]
+  /** Fully-resolved recommendation to apply if this option is chosen. */
+  recommendation: AuthorityResult
+}
+
+/** Ambiguity structure — populated when more than one authority is plausible. */
+export interface Ambiguity {
+  detected: boolean
+  explanation: string
+  clarification_question: string
+  options: AmbiguityOption[]
 }
 
 export interface AuthorityRecommendResponse {
   primary: AuthorityResult
   alternatives: AuthorityResult[]
+  /** null unless the query is genuinely ambiguous between authorities. */
+  ambiguity: Ambiguity | null
 }
 
 // ─── Draft ────────────────────────────────────────────────────────────────────
@@ -125,6 +166,8 @@ export interface WizardState {
   intentResult: IntentResponse | null
   authorityResult: AuthorityRecommendResponse | null
   selectedAuthority: AuthorityResult | null
+  /** Id of the ambiguity option the user picked, if any (persisted across refresh). */
+  ambiguityChoiceId: string | null
   draftResult: DraftGenerateResponse | null
   editedDraftText: string | null
   validationResult: DraftValidateResponse | null

@@ -13,17 +13,14 @@ export function SimulatedBanner({
   children?: ReactNode
 }) {
   return (
-    <div className="rounded-xl border-2 border-amber-300 bg-amber-50 px-4 py-3 mb-5 flex items-start gap-3">
-      <AlertTriangleIcon size={18} className="text-amber-600 shrink-0 mt-0.5" />
+    <div className="rounded-lg border border-slate-200 border-l-2 border-l-amber-500 px-4 py-3 mb-5 flex items-start gap-2.5">
+      <AlertTriangleIcon size={15} className="text-amber-600 shrink-0 mt-0.5" />
       <div className="text-sm">
-        <p className="font-bold text-amber-800 tracking-wide">
-          SIMULATED — no real data is sent
+        <p className="font-medium text-slate-900">Simulated step — no real data is sent</p>
+        <p className="text-slate-600 mt-0.5">
+          Nothing here contacts a government system, SMS gateway, or payment provider.
         </p>
-        <p className="text-amber-700 mt-0.5">
-          This is a prototype for the hackathon. Nothing here contacts a real
-          government system, SMS gateway, or payment provider.
-        </p>
-        {children && <div className="text-amber-800 mt-1.5 font-medium">{children}</div>}
+        {children && <div className="text-slate-700 mt-1.5">{children}</div>}
       </div>
     </div>
   )

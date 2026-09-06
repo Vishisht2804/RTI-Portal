@@ -123,9 +123,29 @@ export function getNextAction(
   status: RtiStatus,
   rtiId: number,
   isOverdue = false,
+  appeal: FirstAppeal | null = null,
 ): NextAction {
-  // Override: overdue AWAITING_RESPONSE triggers First Appeal action
+  // Override: overdue AWAITING_RESPONSE drives the First Appeal sub-flow.
+  // The RTI status itself stays AWAITING_RESPONSE throughout.
   if (status === 'AWAITING_RESPONSE' && isOverdue) {
+    if (appeal?.submitted_at) {
+      return {
+        title: 'First Appeal submitted',
+        description:
+          'Your First Appeal under Section 19(1) has been recorded in this prototype. No further action is required for the appeal.',
+        action: 'appeal_submitted',
+        action_url: `/filing/rtis/${rtiId}`,
+      }
+    }
+    if (appeal) {
+      return {
+        title: 'Submit First Appeal',
+        description:
+          'Your First Appeal draft is ready. Review it, then submit (simulated) to record the appeal.',
+        action: 'submit_appeal',
+        action_url: `/filing/rtis/${rtiId}`,
+      }
+    }
     return {
       title: 'Generate First Appeal',
       description:
@@ -149,6 +169,12 @@ export function registrationNumber(rtiId: number): string {
   return `RTI/${year}/${String(rtiId).padStart(5, '0')}`
 }
 
+/** Demo First Appeal reference number — same id/sequence convention as the RTI number. */
+export function appealReferenceNumber(rtiId: number): string {
+  const year = new Date().getFullYear()
+  return `FA/${year}/${String(rtiId).padStart(5, '0')}`
+}
+
 // ─── Persisted shapes (mirror backend `_serialize_rti`) ──────────────────────
 
 /** Generated First Appeal — stored per RTI so it survives refresh. */
@@ -157,6 +183,10 @@ export interface FirstAppeal {
   title: string
   reason: string
   generated_text: string
+  /** Set when the appeal is (simulated-)submitted. null before that. */
+  submitted_at: string | null
+  /** Demo reference number, e.g. FA/2026/00001. null before submission. */
+  appeal_reference_number: string | null
 }
 
 export interface DemoStatusEvent {
@@ -440,7 +470,7 @@ export function serializeRtiDetail(rti: DemoRti, demoNow?: string | null) {
       metadata: e.metadata ?? {},
     })),
     last_update: latest ? latest.timestamp : rti.created_at,
-    next_action: getNextAction(rti.status, rti.id, dl.is_overdue),
+    next_action: getNextAction(rti.status, rti.id, dl.is_overdue, rti.first_appeal ?? null),
     first_appeal: rti.first_appeal ?? null,
   }
 }
@@ -455,11 +485,12 @@ export function serializeRtiListItem(rti: DemoRti, demoNow?: string | null) {
     subject: rti.original_query.slice(0, 96),
     status: rti.status,
     last_update: latest ? latest.timestamp : rti.created_at,
-    next_action: getNextAction(rti.status, rti.id, dl.is_overdue),
+    next_action: getNextAction(rti.status, rti.id, dl.is_overdue, rti.first_appeal ?? null),
     response_due_at: dl.response_due_at,
     is_overdue: dl.is_overdue,
     days_remaining: dl.days_remaining,
     days_overdue_count: dl.days_overdue_count,
     has_appeal: Boolean(rti.first_appeal),
+    appeal_submitted: Boolean(rti.first_appeal?.submitted_at),
   }
 }

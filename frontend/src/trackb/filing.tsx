@@ -9,17 +9,13 @@ import {
   Link, Navigate, Route, Routes,
   useNavigate, useParams, useLocation,
 } from "react-router-dom";
-import {
-  Check, CheckCircle2, Circle, CreditCard, FileText,
-  LayoutDashboard, RefreshCw, Send, Upload, AlertCircle,
-  ChevronRight, Clock, User, ArrowLeft, PlusCircle, SparklesIcon,
-  Copy, Download, Edit3, FastForward, Shield,
-} from "lucide-react";
+import { AlertCircle, Copy, Download, FileText, RefreshCw, Send } from "lucide-react";
 import { AppHeader } from "../components/common/AppHeader";
-import { SimulatedBanner } from "../components/common/SimulatedBanner";
+import { AppFooter } from "../components/common/AppFooter";
+import { Breadcrumb } from "../components/common/Breadcrumb";
 import { DisclosureCard } from "../components/common/DisclosureCard";
 import { DemoTimeControls } from "../components/common/DemoTimeControls";
-import { DeadlineDisplay, DeadlineBadge } from "../components/common/DeadlineDisplay";
+
 import { NextActionCard } from "../components/common/NextActionCard";
 import { DEMO_MODE } from "../services/demo/config";
 import { mockRequest, mockUploadDocument } from "../services/mockApi";
@@ -51,6 +47,8 @@ export type RtiDetail = {
     title: string;
     reason: string;
     generated_text: string;
+    submitted_at: string | null;
+    appeal_reference_number: string | null;
   } | null;
 };
 
@@ -69,17 +67,6 @@ export async function api(path: string, options: { method?: string; body?: unkno
   if (!response.ok) throw new Error(data.error?.message ?? "API request failed");
   return data;
 }
-
-// ─── Filing step config ───────────────────────────────────────────────────────
-
-const FILING_STEPS = [
-  { id: 1, key: "applicant", label: "Applicant" },
-  { id: 2, key: "documents", label: "Documents" },
-  { id: 3, key: "payment",   label: "Payment"   },
-  { id: 4, key: "review",    label: "Review"    },
-] as const;
-
-type StepKey = typeof FILING_STEPS[number]["key"];
 
 // ─── Human-readable status labels ────────────────────────────────────────────
 
@@ -121,118 +108,58 @@ function useRti() {
   return { rti, error, reload: load, rtiId: Number(rtiId) };
 }
 
-// ─── Shared: Filing stepper (clickable for completed steps) ───────────────────
+// ─── Shared: filing step strip (Figma: "1 Applicant · 2 Documents · …") ───────
 
-function FilingStepper({ currentKey, rtiId }: { currentKey: StepKey; rtiId?: number }) {
-  const currentIdx = FILING_STEPS.findIndex((s) => s.key === currentKey);
-  const navigate = useNavigate();
+const FILING_PHASES = [
+  { key: "applicant", label: "Applicant" },
+  { key: "documents", label: "Documents" },
+  { key: "payment",   label: "Payment" },
+  { key: "review",    label: "Review" },
+  { key: "submitted", label: "Submit" },
+] as const;
 
+function StepStrip({ current }: { current: string }) {
+  const idx = FILING_PHASES.findIndex((p) => p.key === current);
   return (
-    <div className="w-full bg-white border-b border-slate-100">
-      <div className="max-w-7xl mx-auto px-6 lg:px-8 pb-4 pt-3">
-        <div className="flex items-center">
-          {FILING_STEPS.map((step, idx) => {
-            const done   = idx < currentIdx;
-            const active = idx === currentIdx;
-            const future = idx > currentIdx;
-
-            const circle = (
-              <div
-                className={[
-                  "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300",
-                  done   ? "bg-emerald-500 text-white shadow-md" : "",
-                  active ? "bg-primary-800 text-white shadow-md ring-4 ring-primary-100" : "",
-                  future ? "bg-slate-200 text-slate-500" : "",
-                ].join(" ")}
-              >
-                {done ? <Check size={14} /> : step.id}
-              </div>
-            );
-
-            return (
-              <div key={step.key} className="flex items-center flex-1 last:flex-none">
-                <div className="flex flex-col items-center min-w-[32px]">
-                  {/* Completed steps are clickable */}
-                  {done && rtiId ? (
-                    <button
-                      onClick={() => navigate(`/filing/${rtiId}/${step.key}`)}
-                      className="focus:outline-none cursor-pointer"
-                      title={`Go back to ${step.label}`}
-                    >
-                      {circle}
-                    </button>
-                  ) : (
-                    <div className={future ? "cursor-not-allowed" : ""}>{circle}</div>
-                  )}
-                  <span
-                    className={[
-                      "mt-1 text-[10px] font-medium whitespace-nowrap",
-                      active ? "text-primary-700" : done ? "text-emerald-600" : "text-slate-400",
-                    ].join(" ")}
-                  >
-                    {step.label}
-                  </span>
-                </div>
-                {idx < FILING_STEPS.length - 1 && (
-                  <div
-                    className={[
-                      "flex-1 h-0.5 mx-1 mb-4 rounded transition-all duration-300",
-                      done ? "bg-emerald-400" : "bg-slate-200",
-                    ].join(" ")}
-                  />
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Shared: Context info bar ─────────────────────────────────────────────────
-
-function ContextBar({ rti }: { rti: RtiDetail | null }) {
-  const badgeClass = STATUS_BADGE[rti?.status ?? ""] ?? "badge-slate";
-  return (
-    <div className="flex items-center flex-wrap gap-3 mb-6 pb-5 border-b border-slate-100">
-      <div className="flex items-center gap-2 text-slate-600">
-        <FileText size={16} className="text-primary-600 shrink-0" />
-        <span className="font-semibold text-slate-800">{rti?.authority_name ?? "Loading…"}</span>
-      </div>
-      {rti?.status && (
-        <span className={`badge ${badgeClass}`}>{humanStatus(rti.status)}</span>
-      )}
-      {rti?.registration_number && (
-        <span className="badge badge-slate font-mono text-[11px]">{rti.registration_number}</span>
-      )}
-    </div>
+    <p className="text-sm mt-3 mb-8 flex flex-wrap gap-x-2 gap-y-1">
+      {FILING_PHASES.map((p, i) => (
+        <span key={p.key} className="flex items-center gap-2">
+          {i > 0 && <span className="text-slate-300" aria-hidden>·</span>}
+          <span className={
+            i === idx ? "font-semibold text-slate-900"
+            : i < idx ? "text-slate-500"
+            : "text-slate-400"
+          }>
+            {i + 1} {p.label}
+          </span>
+        </span>
+      ))}
+    </p>
   );
 }
 
 // ─── Shared: Page shell ───────────────────────────────────────────────────────
 
 function PageShell({
-  eyebrow, title, stepKey, rtiId, children,
+  crumbs, title, subtitle, stepKey, children,
 }: {
-  eyebrow: string;
+  crumbs: { label: string; to?: string }[];
   title: string;
-  stepKey?: StepKey;
-  rtiId?: number;
+  subtitle?: string;
+  stepKey?: string;
   children: React.ReactNode;
 }) {
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
       <AppHeader />
-      {stepKey && <FilingStepper currentKey={stepKey} rtiId={rtiId} />}
-
-      <div className="max-w-4xl w-full mx-auto px-6 lg:px-8 py-10 animate-slide-up">
-        <div className="mb-6">
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1">{eyebrow}</p>
-          <h1 className="text-2xl font-bold text-slate-800">{title}</h1>
-        </div>
+      <div className="page animate-slide-up">
+        <Breadcrumb items={crumbs} />
+        <h1 className="page-title">{title}</h1>
+        {stepKey && <StepStrip current={stepKey} />}
+        {subtitle && <p className="page-subtitle max-w-2xl mb-8">{subtitle}</p>}
         {children}
       </div>
+      <AppFooter />
     </div>
   );
 }
@@ -241,7 +168,7 @@ function PageShell({
 
 function BottomNav({
   backLabel, backTo,
-  forwardLabel, onForward, forwardDisabled, forwardIcon,
+  forwardLabel, onForward, forwardDisabled,
 }: {
   backLabel: string;
   backTo: string;
@@ -251,19 +178,20 @@ function BottomNav({
   forwardIcon?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between mt-6 pt-4 border-t border-slate-100">
-      <Link to={backTo} className="btn-secondary flex items-center gap-2">
-        <ArrowLeft size={15} /> {backLabel}
-      </Link>
+    <div className="mt-8">
       <button
         onClick={onForward}
         disabled={forwardDisabled}
-        className="btn-primary flex items-center gap-2"
+        className="btn-primary w-full sm:w-auto sm:min-w-[220px]"
       >
-        {forwardIcon ?? null}
         {forwardLabel}
-        {!forwardIcon && <ChevronRight size={16} />}
       </button>
+      <Link
+        to={backTo}
+        className="block sm:inline-block sm:ml-5 mt-3 sm:mt-0 text-sm font-medium text-slate-500 hover:text-slate-800"
+      >
+        ← {backLabel}
+      </Link>
     </div>
   );
 }
@@ -318,75 +246,76 @@ function Applicant() {
   }
 
   return (
-    <PageShell eyebrow="Filing · Step 1 of 4" title="Applicant Details" stepKey="applicant" rtiId={rtiId}>
-      <div className="card mb-4">
-        <ContextBar rti={rti} />
+    <PageShell
+      crumbs={[{ label: "My RTIs", to: "/filing/dashboard" }, { label: "File" }, { label: "Applicant" }]}
+      title="Applicant details"
+      subtitle="Add your details and complete the simulated verification. Nothing is sent."
+      stepKey="applicant"
+    >
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px] items-start">
+        <div>
+          <div className="panel p-6">
+            <p className="eyebrow">Applicant details</p>
 
-        <SimulatedBanner>
-          Demo OTP: <span className="font-mono">123456</span> — enter it below. No SMS is sent.
-        </SimulatedBanner>
+            {(error || actionError) && (
+              <div className="mt-4 bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700 flex items-center gap-2">
+                <AlertCircle size={15} /> {actionError || error}
+              </div>
+            )}
 
-        {(error || actionError) && (
-          <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700 flex items-center gap-2 mb-4">
-            <AlertCircle size={15} /> {actionError || error}
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
-          {(["name", "email", "phone"] as const).map((key) => (
-            <div key={key}>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 capitalize">
-                {key}
-              </label>
-              <input
-                className="input-base"
-                value={form[key]}
-                onChange={(e) => setForm({ ...form, [key]: e.target.value })}
-                placeholder={key}
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
+              {([["name", "Name"], ["email", "Email"], ["phone", "Mobile"]] as const).map(([key, label]) => (
+                <div key={key}>
+                  <label className="block section-label mb-1.5">{label}</label>
+                  <input
+                    className="input-base"
+                    value={form[key]}
+                    onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+                    placeholder={label}
+                  />
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
 
-        <button onClick={sendOtp} disabled={loading} className="btn-primary flex items-center gap-2">
-          {loading ? "Sending…" : <><User size={15} /> Send demo OTP</>}
-        </button>
-
-        {otpMessage && (
-          <p className="mt-3 text-sm text-slate-500 bg-slate-50 rounded-lg px-3 py-2 border border-slate-100">
-            {otpMessage}
-          </p>
-        )}
-      </div>
-
-      {otpMessage && (
-        <div className="card mb-4">
-          <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
-            Enter OTP
-          </label>
-          <div className="flex flex-wrap items-center gap-3">
-            <input
-              className="input-base w-40 font-mono tracking-widest text-center text-lg"
-              value={otp}
-              onChange={(e) => setOtp(e.target.value)}
-              placeholder="123456"
-              maxLength={6}
-            />
-            <button onClick={verify} disabled={verifying || !otp} className="btn-primary flex items-center gap-2">
-              {verifying ? "Verifying…" : <><CheckCircle2 size={15} /> Verify OTP</>}
+            <button onClick={sendOtp} disabled={loading} className="btn-primary mt-5">
+              {loading ? "Sending…" : "Send demo OTP"}
             </button>
-          </div>
-        </div>
-      )}
 
-      {/* Bottom nav — OTP send/verify lives in the form above, not duplicated here */}
-      <div className="flex items-center mt-6 pt-4 border-t border-slate-100">
-        <Link to="/filing/dashboard" className="btn-secondary flex items-center gap-2">
-          <ArrowLeft size={15} /> Dashboard
-        </Link>
-        <span className="ml-auto text-xs text-slate-400">
-          Verify the OTP to continue to Documents
-        </span>
+            {otpMessage && (
+              <div className="divider mt-6 pt-6">
+                <p className="eyebrow">Verify</p>
+                <p className="text-sm text-slate-500 mt-1.5">{otpMessage}</p>
+                <div className="flex flex-wrap items-center gap-3 mt-3">
+                  <input
+                    className="input-base w-40 font-mono tracking-[0.3em] text-center text-lg"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value)}
+                    placeholder="123456"
+                    maxLength={6}
+                  />
+                  <button onClick={verify} disabled={verifying || !otp} className="btn-primary">
+                    {verifying ? "Verifying…" : "Verify & continue"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <Link
+            to="/filing/dashboard"
+            className="block text-sm font-medium text-slate-500 hover:text-slate-800 mt-4"
+          >
+            ← Back to My RTIs
+          </Link>
+        </div>
+
+        <aside className="panel p-6">
+          <p className="eyebrow">Simulated verification</p>
+          <p className="text-sm text-slate-600 mt-2 leading-relaxed">
+            Demo OTP is <span className="font-mono font-medium text-slate-800">123456</span>. No SMS
+            is sent and no details leave your browser.
+          </p>
+        </aside>
       </div>
     </PageShell>
   );
@@ -418,29 +347,34 @@ function Documents() {
   const docs = rti?.documents ?? [];
 
   return (
-    <PageShell eyebrow="Filing · Step 2 of 4" title="Documents" stepKey="documents" rtiId={rtiId}>
-      <div className="card mb-4">
-        <ContextBar rti={rti} />
+    <PageShell
+      crumbs={[{ label: "My RTIs", to: "/filing/dashboard" }, { label: "File" }, { label: "Documents" }]}
+      title="Supporting documents"
+      subtitle="Optional. You can continue without attaching anything."
+      stepKey="documents"
+    >
+      <div className="panel p-6 max-w-2xl">
+        <p className="eyebrow">Documents</p>
+        <p className="text-sm text-slate-500 mt-2">Optional supporting documents</p>
 
-        <p className="text-sm text-slate-500 mb-5">
-          Upload supporting documents for your RTI application. You can proceed without documents.
-        </p>
-
-        <button onClick={upload} disabled={uploading} className="btn-primary flex items-center gap-2">
-          {uploading ? "Uploading…" : <><Upload size={15} /> Add demo document</>}
+        <button
+          onClick={upload}
+          disabled={uploading}
+          className="mt-4 text-sm font-medium text-primary-700 hover:text-primary-900 disabled:opacity-60"
+        >
+          {uploading ? "Uploading…" : "+ Add demo document"}
         </button>
 
         {docs.length > 0 && (
-          <div className="mt-5 space-y-2">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Uploaded</p>
+          <div className="divider mt-5 pt-5 space-y-2">
             {docs.map((d) => (
               <div
                 key={d.id}
-                className="flex items-center gap-3 bg-slate-50 border border-slate-100 rounded-xl px-4 py-3"
+                className="flex items-center gap-3 border border-slate-200 rounded-lg px-4 py-3"
               >
-                <FileText size={15} className="text-primary-600 shrink-0" />
-                <span className="text-sm text-slate-700 font-medium flex-1">{d.filename}</span>
-                <span className="text-xs text-slate-400">{(d.size / 1024).toFixed(1)} KB</span>
+                <FileText size={15} className="text-slate-400 shrink-0" />
+                <span className="text-sm text-slate-700 font-medium flex-1 truncate">{d.filename}</span>
+                <span className="text-xs text-slate-400 shrink-0">{(d.size / 1024).toFixed(1)} KB</span>
               </div>
             ))}
           </div>
@@ -448,9 +382,9 @@ function Documents() {
       </div>
 
       <BottomNav
-        backLabel="Applicant"
+        backLabel="Back to applicant"
         backTo={`/filing/${rtiId}/applicant`}
-        forwardLabel="Continue"
+        forwardLabel="Continue to payment"
         onForward={() => navigate(`/filing/${rtiId}/payment`)}
       />
     </PageShell>
@@ -473,45 +407,46 @@ function Payment() {
     } finally { setPaying(null); }
   }
 
+  const paid = rti?.status === "PAYMENT_SUCCESS";
+
   return (
-    <PageShell eyebrow="Filing · Step 3 of 4" title="Payment" stepKey="payment" rtiId={rtiId}>
-      <div className="card mb-4">
-        <ContextBar rti={rti} />
-
-        <SimulatedBanner>
-          ₹10 application fee — the buttons below just set a status. No payment provider is called.
-        </SimulatedBanner>
-
-        <div className="bg-slate-50 border border-slate-100 rounded-xl p-5 mb-6 text-center">
-          <CreditCard size={32} className="text-primary-600 mx-auto mb-2" />
-          <p className="text-2xl font-bold text-slate-800">₹ 10.00</p>
-          <p className="text-sm text-slate-500 mt-1">RTI Application Fee</p>
+    <PageShell
+      crumbs={[{ label: "My RTIs", to: "/filing/dashboard" }, { label: "File" }, { label: "Payment" }]}
+      title="Payment"
+      subtitle="A ₹10 filing fee. Simulated in demo mode — no payment provider is called."
+      stepKey="payment"
+    >
+      <div className="panel p-6 max-w-2xl">
+        <p className="status-eyebrow text-primary-700">Simulated payment · demo mode</p>
+        <div className="flex items-baseline justify-between gap-4 mt-3">
+          <p className="text-sm text-slate-600">RTI application fee</p>
+          <p className="text-xl font-bold text-slate-900">₹10</p>
         </div>
 
-        <div className="flex flex-wrap gap-3">
+        <div className="divider mt-5 pt-5 flex flex-wrap gap-3">
           <button
             onClick={() => pay("SUCCESS")}
             disabled={paying !== null}
-            className="btn-primary flex items-center gap-2"
+            className="btn-primary"
           >
-            <CreditCard size={15} />
-            {paying === "SUCCESS" ? "Processing…" : "Mark payment success"}
+            {paying === "SUCCESS" ? "Processing…" : paid ? "Paid — continue" : "Pay ₹10 (simulated)"}
           </button>
           <button
             onClick={() => pay("FAILED")}
             disabled={paying !== null}
-            className="btn-secondary flex items-center gap-2 border-red-200 text-red-600 hover:bg-red-50"
+            className="text-sm font-medium text-slate-500 hover:text-red-600"
           >
-            {paying === "FAILED" ? "Processing…" : "Simulate failure"}
+            {paying === "FAILED" ? "Processing…" : "Simulate a failed payment"}
           </button>
         </div>
       </div>
 
       <BottomNav
-        backLabel="Documents"
+        backLabel="Back to documents"
         backTo={`/filing/${rtiId}/documents`}
-        forwardLabel="Continue"
+        forwardLabel="Continue to review"
         onForward={() => navigate(`/filing/${rtiId}/review`)}
+        forwardDisabled={!paid}
       />
     </PageShell>
   );
@@ -533,33 +468,38 @@ function Review() {
   }
 
   return (
-    <PageShell eyebrow="Filing · Step 4 of 4" title="Review & Submit" stepKey="review" rtiId={rtiId}>
-      <div className="card mb-4">
-        <ContextBar rti={rti} />
+    <PageShell
+      crumbs={[{ label: "My RTIs", to: "/filing/dashboard" }, { label: "File" }, { label: "Review" }]}
+      title="Review & submit"
+      subtitle="Check the final request. Submitting generates a demo registration number — nothing is filed with a government system."
+      stepKey="review"
+    >
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px] items-start">
+        <div>
+          <div className="panel p-6">
+            <p className="eyebrow">Final RTI request</p>
+            <pre className="mt-3 text-[15px] text-slate-700 leading-7 whitespace-pre-wrap font-sans max-h-[420px] overflow-y-auto bg-slate-50 rounded-lg p-4 border border-slate-100">
+              {rti?.final_request ?? "Loading…"}
+            </pre>
+          </div>
 
-        <SimulatedBanner>
-          “Submit RTI” generates a demo registration number. Nothing is filed with a real
-          Public Information Officer or rtionline.gov.in.
-        </SimulatedBanner>
-
-        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
-          Final RTI Request
-        </p>
-        <div className="bg-slate-50 border-l-4 border-primary-600 rounded-lg p-4 mb-2">
-          <pre className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap font-sans max-h-64 overflow-y-auto">
-            {rti?.final_request ?? "Loading…"}
-          </pre>
+          <BottomNav
+            backLabel="Back to payment"
+            backTo={`/filing/${rtiId}/payment`}
+            forwardLabel={submitting ? "Submitting…" : "Submit RTI"}
+            onForward={submit}
+            forwardDisabled={submitting || !rti}
+          />
         </div>
-      </div>
 
-      <BottomNav
-        backLabel="Payment"
-        backTo={`/filing/${rtiId}/payment`}
-        forwardLabel={submitting ? "Submitting…" : "Submit RTI"}
-        onForward={submit}
-        forwardDisabled={submitting || !rti}
-        forwardIcon={<Send size={15} />}
-      />
+        <aside className="panel p-6">
+          <p className="eyebrow">Addressed to</p>
+          <p className="text-sm font-medium text-slate-800 mt-1.5">{rti?.authority_name}</p>
+          <p className="text-[13px] text-slate-400 mt-4 divider pt-4 leading-relaxed">
+            Simulated submission — no Public Information Officer or rtionline.gov.in is contacted.
+          </p>
+        </aside>
+      </div>
     </PageShell>
   );
 }
@@ -570,56 +510,66 @@ function Submitted() {
   const { rti } = useRti();
 
   return (
-    <PageShell eyebrow="Confirmation" title="Submission Recorded">
-      <SimulatedBanner>
-        The registration number below is generated locally for the demo. No RTI was filed
-        with any government system.
-      </SimulatedBanner>
-
-      <div className="card text-center mb-4">
-        <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
-          <CheckCircle2 size={40} className="text-emerald-600" />
-        </div>
-
-        <h2 className="text-xl font-bold text-slate-800 mb-2">RTI Submitted!</h2>
-
-        <p className="text-sm text-slate-500 mb-6">
-          This is a simulated government submission for the hackathon MVP.
+    <PageShell
+      crumbs={[{ label: "My RTIs", to: "/filing/dashboard" }, { label: "Submitted" }]}
+      title="Submission recorded."
+    >
+      <div className="status-banner-green">
+        <p className="status-eyebrow text-emerald-700">RTI submitted</p>
+        <p className="text-base font-bold text-slate-900 mt-1">
+          {rti?.registration_number
+            ? `Reference ${rti.registration_number}`
+            : "Your RTI has been recorded."}
+          {rti?.submitted_at && (
+            <span className="font-normal text-slate-500"> · Filed {formatFriendlyDate(rti.submitted_at)}</span>
+          )}
         </p>
+        <p className="text-sm text-slate-600 mt-0.5">
+          Simulated submission for the demo — no RTI was filed with any government system.
+        </p>
+      </div>
 
-        {rti?.registration_number ? (
-          <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 mb-6 inline-block mx-auto">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Registration Number</p>
-            <p className="text-2xl font-bold text-primary-800 font-mono">{rti.registration_number}</p>
-          </div>
-        ) : (
-          <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 mb-6">
-            <p className="text-sm text-slate-400 italic">Registration pending…</p>
-          </div>
-        )}
-
-        {rti?.response_due_at && (
-          <div className="mt-2 mb-6 text-left max-w-sm mx-auto">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-              Response Protection
-            </p>
-            <DeadlineDisplay
-              responseDueAt={rti.response_due_at}
-              isOverdue={rti.is_overdue}
-              daysRemaining={rti.days_remaining}
-              daysOverdueCount={rti.days_overdue_count}
-            />
-          </div>
-        )}
-
-        <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <Link to="/filing/dashboard" className="btn-primary flex items-center justify-center gap-2">
-            <LayoutDashboard size={15} /> Go to Dashboard
-          </Link>
-          <Link to="/" className="btn-secondary flex items-center justify-center gap-2">
-            File Another RTI
-          </Link>
+      <div className="grid gap-8 lg:grid-cols-2 items-start mt-6">
+        <div className="panel p-6">
+          <p className="eyebrow">What we recorded</p>
+          <dl className="mt-3 space-y-3">
+            <div>
+              <dt className="section-label">Registration number</dt>
+              <dd className="text-sm font-mono font-medium text-slate-900 mt-1">
+                {rti?.registration_number ?? "Pending…"}
+              </dd>
+            </div>
+            {rti?.submitted_at && (
+              <div>
+                <dt className="section-label">Filed</dt>
+                <dd className="text-sm font-medium text-slate-800 mt-1">{formatFriendlyDate(rti.submitted_at)}</dd>
+              </div>
+            )}
+            {rti?.response_due_at && (
+              <div>
+                <dt className="section-label">Response due</dt>
+                <dd className="text-sm font-medium text-slate-800 mt-1">{formatFriendlyDate(rti.response_due_at)}</dd>
+              </div>
+            )}
+          </dl>
         </div>
+
+        <div className="panel p-6">
+          <p className="eyebrow">What happens next</p>
+          <p className="text-sm text-slate-600 mt-3 leading-relaxed">
+            The authority has 30 days to respond. RTI Navigator tracks the deadline in My RTIs. If it
+            passes with no reply, a First Appeal is prepared for you from this record.
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-8">
+        <Link to="/filing/dashboard" className="btn-primary w-full sm:w-auto sm:min-w-[220px] inline-block text-center">
+          Go to My RTIs
+        </Link>
+        <Link to="/" className="block sm:inline-block sm:ml-5 mt-3 sm:mt-0 text-sm font-medium text-slate-500 hover:text-slate-800">
+          Start another request
+        </Link>
       </div>
     </PageShell>
   );
@@ -688,7 +638,12 @@ function Dashboard() {
   }
 
   // Partition RTIs by urgency
-  const overdueRtis = rtis.filter((r) => r.is_overdue && r.status === "AWAITING_RESPONSE");
+  const overdueRtis = rtis.filter(
+    (r) => r.is_overdue && r.status === "AWAITING_RESPONSE" && !r.appeal_submitted,
+  );
+  const appealFiledRtis = rtis.filter(
+    (r) => r.is_overdue && r.status === "AWAITING_RESPONSE" && r.appeal_submitted,
+  );
   const awaitingRtis = rtis.filter((r) => !r.is_overdue && r.status === "AWAITING_RESPONSE");
   const activeRtis = rtis.filter(
     (r) => r.status !== "AWAITING_RESPONSE" && r.status !== "RESPONSE_RECEIVED",
@@ -700,185 +655,83 @@ function Dashboard() {
     <div className="min-h-screen flex flex-col bg-slate-50">
       <AppHeader />
 
-      <div className="max-w-6xl w-full mx-auto px-6 lg:px-8 py-10 animate-slide-up">
+      <div className="page animate-slide-up">
+        <Breadcrumb items={[{ label: "Home", to: "/" }, { label: "My RTIs" }]} />
 
-        {/* Heading row */}
-        <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1">Citizen RTIs</p>
-            <h1 className="text-2xl font-bold text-slate-800">Dashboard</h1>
+            <h1 className="page-title">My RTIs</h1>
+            <p className="page-subtitle">
+              Keep every RTI visible — especially when a response needs follow-up.
+            </p>
           </div>
-          <div className="flex items-center gap-2">
-            {DEMO_MODE && (
-              <DemoTimeControls
-                demoNow={demoNow}
-                onTimeChange={loadAll}
-                onAdvance={advanceTime}
-                onReset={resetTime}
-                compact
-              />
-            )}
+          <div className="flex flex-wrap items-center gap-2">
+            <Link to="/" className="btn-primary text-sm">New request</Link>
+            <button onClick={jumpToFiling} className="btn-secondary text-sm">Jump to filing</button>
+          </div>
+        </div>
+
+        {DEMO_MODE && (
+          <div className="mt-6 flex flex-wrap items-center gap-3">
+            <DemoTimeControls
+              demoNow={demoNow}
+              onTimeChange={loadAll}
+              onAdvance={advanceTime}
+              onReset={resetTime}
+              compact
+            />
+            <button
+              onClick={runFastForwardDemo}
+              disabled={fastforwarding}
+              className="text-xs font-medium text-primary-700 hover:text-primary-900 disabled:opacity-60"
+            >
+              {fastforwarding ? "Advancing…" : "Run 30-day demo →"}
+            </button>
             <button
               onClick={reset}
               disabled={resetting}
-              className="text-xs text-slate-400 hover:text-slate-600 flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 hover:border-slate-300 transition-colors"
+              className="text-xs text-slate-400 hover:text-slate-700 flex items-center gap-1.5 ml-auto"
             >
               <RefreshCw size={11} className={resetting ? "animate-spin" : ""} />
-              {resetting ? "Resetting…" : "Demo reset"}
+              {resetting ? "Resetting…" : "Reset demo"}
             </button>
           </div>
+        )}
+
+        {/* Stat cards */}
+        <div className="mt-6 grid grid-cols-3 gap-4">
+          {[
+            { label: "Active", value: awaitingRtis.length, tone: "text-slate-400" },
+            { label: "Overdue", value: attentionCount, tone: "text-red-600" },
+            { label: "Submitted", value: rtis.filter((r) => r.registration_number).length, tone: "text-slate-400" },
+          ].map((s) => (
+            <div key={s.label} className="panel p-4 sm:p-5">
+              <p className={`status-eyebrow ${s.tone}`}>{s.label}</p>
+              <p className="text-[28px] font-bold text-slate-900 mt-1 tabular-nums leading-none">{s.value}</p>
+            </div>
+          ))}
         </div>
 
-        {/* ── ATTENTION REQUIRED ─────────────────────────────────────────── */}
-        {attentionCount > 0 && (
-          <div className="mb-6">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-5 h-5 rounded-full bg-red-600 flex items-center justify-center">
-                <span className="text-white text-[10px] font-bold">{attentionCount}</span>
-              </div>
-              <p className="text-sm font-bold text-red-700 uppercase tracking-wider">
-                {attentionCount} action{attentionCount !== 1 ? "s" : ""} required
-              </p>
-            </div>
-            <div className="space-y-3">
-              {overdueRtis.map((rti) => (
-                <div
-                  key={rti.id}
-                  className="card border-2 border-red-200 bg-red-50 hover:border-red-300 cursor-pointer transition-all duration-200 active:scale-[0.99]"
-                  onClick={() => navigate(`/filing/rtis/${rti.id}`)}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-2 mb-1.5">
-                        <span className="badge badge-red">Overdue</span>
-                        {rti.registration_number && (
-                          <span className="badge badge-slate font-mono text-[10px]">{rti.registration_number}</span>
-                        )}
-                        <DeadlineBadge
-                          isOverdue={rti.is_overdue}
-                          daysRemaining={rti.days_remaining}
-                          daysOverdueCount={rti.days_overdue_count}
-                        />
-                      </div>
-                      <p className="font-semibold text-slate-800 mb-0.5 truncate">{rti.authority_name}</p>
-                      {rti.subject && (
-                        <p className="text-sm text-slate-500 line-clamp-1 mb-2">{rti.subject}</p>
-                      )}
-                      <div className="flex items-center gap-1.5 text-xs text-red-700 font-semibold">
-                        <FileText size={11} />
-                        Generate First Appeal →
-                      </div>
-                    </div>
-                    <ChevronRight size={16} className="text-red-300 shrink-0 mt-1" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ── Primary CTA ───────────────────────────────────────────────── */}
-        <div className="card mb-6 bg-gradient-to-br from-primary-800 to-primary-700 border-primary-700 text-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-5">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-blue-200 mb-1">Start here</p>
-            <h2 className="text-xl font-bold mb-1">File a New RTI</h2>
-            <p className="text-blue-100 text-sm leading-relaxed max-w-md">
-              Describe what you need and RTI Navigator prepares the application — then tracks the response deadline.
-            </p>
-          </div>
-          <div className="flex items-center gap-3 shrink-0">
-            <Link
-              to="/"
-              className="inline-flex items-center gap-2 bg-white text-primary-800 font-semibold px-5 py-2.5 rounded-lg hover:bg-blue-50 transition-colors text-sm"
-            >
-              Start New RTI <ChevronRight size={16} />
-            </Link>
-            <button
-              onClick={jumpToFiling}
-              className="inline-flex items-center gap-2 border border-white/40 text-white font-semibold px-5 py-2.5 rounded-lg hover:bg-white/10 transition-colors text-sm"
-            >
-              Jump to filing <ChevronRight size={15} />
-            </button>
-          </div>
-        </div>
-
-        {/* ── Response Protection demo shortcut ─────────────────────────── */}
-        {DEMO_MODE && (
-          <div className="card mb-6 border-violet-200 bg-violet-50">
-            <div className="flex items-start gap-3">
-              <div className="w-9 h-9 rounded-xl bg-violet-600 flex items-center justify-center shrink-0">
-                <Shield size={16} className="text-white" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-bold uppercase tracking-widest text-violet-500 mb-0.5">
-                  Response Protection — Demo
-                </p>
-                <p className="text-sm font-semibold text-slate-800 mb-0.5">
-                  See what happens when there is no response
-                </p>
-                <p className="text-xs text-slate-500 mb-3">
-                  Fast-forward the demo clock past the 30-day deadline to experience RTI Navigator's
-                  overdue detection and First Appeal generation.
-                </p>
-                <button
-                  onClick={runFastForwardDemo}
-                  disabled={fastforwarding}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-sm font-semibold transition-colors disabled:opacity-60"
-                >
-                  <FastForward size={14} />
-                  {fastforwarding ? "Fast-forwarding…" : "Run 30-day demo"}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <DisclosureCard />
-
-        {/* ── Awaiting response ─────────────────────────────────────────── */}
-        {awaitingRtis.length > 0 && (
-          <div className="mb-6">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Awaiting Response</p>
-            <div className="space-y-3">
-              {awaitingRtis.map((rti) => (
-                <RtiCard key={rti.id} rti={rti} onClick={() => navigate(`/filing/rtis/${rti.id}`)} />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ── Active (filing in progress) ───────────────────────────────── */}
-        {activeRtis.length > 0 && (
-          <div className="mb-6">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">In Progress</p>
-            <div className="space-y-3">
-              {activeRtis.map((rti) => (
-                <RtiCard key={rti.id} rti={rti} onClick={() => navigate(`/filing/rtis/${rti.id}`)} />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ── Done ─────────────────────────────────────────────────────── */}
-        {doneRtis.length > 0 && (
-          <div className="mb-6">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Completed</p>
-            <div className="space-y-3">
-              {doneRtis.map((rti) => (
-                <RtiCard key={rti.id} rti={rti} onClick={() => navigate(`/filing/rtis/${rti.id}`)} />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {rtis.length === 0 && (
-          <div className="card text-center py-12">
-            <FileText size={40} className="text-slate-300 mx-auto mb-3" />
+        {/* Request rows */}
+        <h2 className="section-title mt-8 mb-3">Your requests</h2>
+        {rtis.length === 0 ? (
+          <div className="panel text-center py-12">
             <p className="text-slate-500 font-medium">No RTIs yet</p>
-            <p className="text-sm text-slate-400 mt-1 mb-5">File your first RTI using the button above</p>
+            <p className="text-sm text-slate-400 mt-1">Start a request from the button above.</p>
+          </div>
+        ) : (
+          <div className="grid gap-3">
+            {[...overdueRtis, ...appealFiledRtis, ...awaitingRtis, ...activeRtis, ...doneRtis].map((rti) => (
+              <RtiCard key={rti.id} rti={rti} onClick={() => navigate(`/filing/rtis/${rti.id}`)} />
+            ))}
           </div>
         )}
+
+        <div className="mt-10">
+          <DisclosureCard />
+        </div>
       </div>
+      <AppFooter />
     </div>
   );
 }
@@ -886,37 +739,41 @@ function Dashboard() {
 // ─── Dashboard RTI card ───────────────────────────────────────────────────────
 
 function RtiCard({ rti, onClick }: { rti: any; onClick: () => void }) {
-  const badgeClass = STATUS_BADGE[rti.status] ?? "badge-slate";
+  const humanStatusText = rti.is_overdue ? "Response overdue" : humanStatus(rti.status ?? "draft");
+  const deadlineText =
+    rti.days_remaining === null
+      ? null
+      : rti.is_overdue
+      ? `${rti.days_overdue_count} day${rti.days_overdue_count !== 1 ? "s" : ""} overdue`
+      : rti.days_remaining === 0
+      ? "Response due today"
+      : `${rti.days_remaining} day${rti.days_remaining !== 1 ? "s" : ""} remaining`;
+
   return (
-    <div
+    <button
       onClick={onClick}
-      className="card hover:shadow-md hover:border-primary-100 cursor-pointer transition-all duration-200 active:scale-[0.99]"
+      className="panel w-full text-left p-5 hover:border-slate-300 transition-colors
+                grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
     >
-      <div className="flex items-start gap-2 mb-2">
-        <span className={`badge ${badgeClass}`}>{humanStatus(rti.status ?? "draft")}</span>
+      <div className="min-w-0">
+        <p className="font-medium text-slate-900 truncate">{rti.subject || rti.authority_name}</p>
+        <p className="text-sm text-slate-500 truncate mt-0.5">{rti.authority_name}</p>
         {rti.registration_number && (
-          <span className="badge badge-slate font-mono text-[10px]">{rti.registration_number}</span>
+          <p className="text-xs font-mono text-slate-400 mt-1">{rti.registration_number}</p>
         )}
-        {rti.days_remaining !== null && (
-          <DeadlineBadge
-            isOverdue={rti.is_overdue}
-            daysRemaining={rti.days_remaining}
-            daysOverdueCount={rti.days_overdue_count}
-          />
-        )}
-        <ChevronRight size={14} className="text-slate-300 ml-auto shrink-0" />
       </div>
-      <p className="font-semibold text-slate-800 mb-0.5">{rti.authority_name}</p>
-      {rti.subject && (
-        <p className="text-sm text-slate-500 line-clamp-2 mb-2">{rti.subject}</p>
-      )}
-      {rti.next_action?.title && (
-        <div className="flex items-center gap-1.5 text-xs text-primary-600 font-medium mt-1">
-          <Clock size={11} />
-          Next: {rti.next_action.title}
-        </div>
-      )}
-    </div>
+      <div className="sm:text-right shrink-0">
+        <p className={`text-sm font-medium ${rti.is_overdue ? "text-red-700" : "text-slate-700"}`}>
+          {humanStatusText}
+        </p>
+        {deadlineText && <p className="text-xs text-slate-500 mt-0.5">{deadlineText}</p>}
+        {rti.next_action?.title && (
+          <p className="text-xs text-slate-500 mt-1.5">
+            Next action: <span className="text-slate-800 font-medium">{rti.next_action.title}</span>
+          </p>
+        )}
+      </div>
+    </button>
   );
 }
 
@@ -932,6 +789,8 @@ function Detail() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
   useEffect(() => {
     if (rti?.first_appeal?.generated_text) {
@@ -989,6 +848,20 @@ function Detail() {
     }
   }
 
+  async function submitAppeal() {
+    setSubmitError("");
+    setSubmitting(true);
+    try {
+      await api(`/rtis/${rtiId}/appeal/submit`, { method: "POST" });
+      setEditing(false);
+      await reload();
+    } catch (e) {
+      setSubmitError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   async function copyAppeal() {
     try {
       await navigator.clipboard.writeText(appealText);
@@ -1014,26 +887,178 @@ function Detail() {
 
   const isAwaitingResponse = rti?.status === "AWAITING_RESPONSE";
   const hasAppeal = Boolean(rti?.first_appeal);
+  const appealSubmitted = Boolean(rti?.first_appeal?.submitted_at);
+
+  // ── First Appeal — dedicated full page (Ready / Submitted) ─────────────────
+  if (rti && rti.first_appeal) {
+    const fa = rti.first_appeal;
+    const backToRti = (
+      <Link
+        to="/filing/dashboard"
+        className="block text-sm font-medium text-slate-500 hover:text-slate-800 mt-4"
+      >
+        ← Back to My RTIs
+      </Link>
+    );
+
+    const crumbs = [
+      { label: "My RTIs", to: "/filing/dashboard" },
+      { label: rti.registration_number || `RTI #${rtiId}` },
+      { label: "First Appeal" },
+    ];
+
+    if (appealSubmitted) {
+      return (
+        <div className="min-h-screen flex flex-col bg-slate-50">
+          <AppHeader />
+          <div className="page animate-slide-up">
+            <Breadcrumb items={crumbs} />
+            <h1 className="page-title">First Appeal submitted</h1>
+
+            <div className="status-banner-green mt-6">
+              <p className="status-eyebrow text-emerald-700">First Appeal submitted</p>
+              <p className="text-base font-bold text-slate-900 mt-1">Your First Appeal has been submitted.</p>
+              <p className="text-sm text-slate-600 mt-0.5">
+                Reference: <span className="font-mono">{fa.appeal_reference_number}</span>
+                {fa.submitted_at && ` · Submitted ${formatFriendlyDate(fa.submitted_at)}`}
+              </p>
+            </div>
+
+            <div className="grid gap-8 lg:grid-cols-2 items-start mt-6">
+              <div className="panel p-6">
+                <p className="eyebrow">Appeal details</p>
+                <dl className="mt-3 space-y-3">
+                  <div>
+                    <dt className="section-label">Linked RTI</dt>
+                    <dd className="text-sm font-mono font-medium text-slate-900 mt-1">{rti.registration_number}</dd>
+                  </div>
+                  <div>
+                    <dt className="section-label">Status</dt>
+                    <dd className="text-sm font-medium text-slate-800 mt-1">Submitted (simulated)</dd>
+                  </div>
+                  <div>
+                    <dt className="section-label">Authority</dt>
+                    <dd className="text-sm font-medium text-slate-800 mt-1">First Appellate Authority</dd>
+                  </div>
+                </dl>
+              </div>
+
+              <div className="panel p-6">
+                <p className="eyebrow">What happens next</p>
+                <p className="text-sm text-slate-600 mt-3 leading-relaxed">
+                  The original RTI remains visible in My RTIs. The appeal is recorded separately so
+                  you can track the follow-up without losing the original filing context.
+                </p>
+              </div>
+            </div>
+
+            <div className="panel p-6 mt-6">
+              <div className="flex items-center justify-between gap-3">
+                <p className="eyebrow">Appeal text</p>
+                <div className="flex items-center gap-4">
+                  <button onClick={copyAppeal} className="text-xs font-medium text-slate-500 hover:text-slate-900">
+                    {copied ? "Copied" : "Copy"}
+                  </button>
+                  <button onClick={downloadAppeal} className="text-xs font-medium text-slate-500 hover:text-slate-900">
+                    Download
+                  </button>
+                </div>
+              </div>
+              <pre className="mt-3 text-[15px] text-slate-700 leading-7 whitespace-pre-wrap font-sans bg-slate-50 rounded-lg p-4 border border-slate-100">
+                {appealText}
+              </pre>
+              <p className="text-[13px] text-slate-400 mt-3">
+                Simulated submission — no appellate authority was contacted.
+              </p>
+            </div>
+
+            {backToRti}
+          </div>
+          <AppFooter />
+        </div>
+      );
+    }
+
+    // First Appeal — Ready
+    return (
+      <div className="min-h-screen flex flex-col bg-slate-50">
+        <AppHeader />
+        <div className="page animate-slide-up">
+          <Breadcrumb items={crumbs} />
+          <h1 className="page-title">First Appeal</h1>
+          <p className="page-subtitle max-w-2xl mb-8">
+            Generated from the RTI record because the response is overdue. Review, edit, and save
+            before submission.
+          </p>
+
+          <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px] items-start">
+            <div>
+              <div className="panel overflow-hidden">
+                <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-slate-200 bg-slate-50">
+                  <span className="eyebrow">First Appeal draft</span>
+                  <div className="flex items-center gap-4">
+                    <button onClick={copyAppeal} className="text-xs font-medium text-slate-500 hover:text-slate-900">
+                      {copied ? "Copied" : "Copy"}
+                    </button>
+                    <button onClick={downloadAppeal} className="text-xs font-medium text-slate-500 hover:text-slate-900">
+                      Download
+                    </button>
+                  </div>
+                </div>
+                <textarea
+                  value={appealText}
+                  onChange={(e) => setAppealText(e.target.value)}
+                  rows={18}
+                  className="w-full resize-y bg-white px-5 py-5 text-slate-800 text-[15px] leading-7 focus:outline-none"
+                />
+                <div className="px-5 py-3 border-t border-slate-200 text-[13px] text-slate-400">
+                  Linked RTI: <span className="font-mono">{rti.registration_number}</span> · Reason: {fa.reason}
+                </div>
+              </div>
+
+              {submitError && (
+                <p className="mt-2 text-xs text-red-600 flex items-center gap-1">
+                  <AlertCircle size={12} /> {submitError}
+                </p>
+              )}
+              {backToRti}
+            </div>
+
+            <aside>
+              <div className="panel p-6">
+                <p className="eyebrow">Submission status</p>
+                <p className="text-sm font-semibold text-slate-900 mt-3">Ready to submit</p>
+                <p className="text-sm text-slate-500 mt-1.5 leading-relaxed">
+                  The text remains editable until you submit the simulated appeal.
+                </p>
+              </div>
+              <button onClick={saveAppeal} disabled={saving} className="btn-secondary w-full mt-4">
+                {saving ? "Saving…" : "Save changes"}
+              </button>
+              <button onClick={submitAppeal} disabled={submitting} className="btn-primary w-full mt-3">
+                {submitting ? "Submitting…" : "Submit First Appeal"}
+              </button>
+              <p className="status-eyebrow text-slate-400 mt-3">Simulated · demo mode only</p>
+            </aside>
+          </div>
+        </div>
+        <AppFooter />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
       <AppHeader />
 
-      <div className="max-w-7xl w-full mx-auto px-6 lg:px-8 py-10 animate-slide-up">
-        <Link
-          to="/filing/dashboard"
-          className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 mb-6"
-        >
-          <ArrowLeft size={14} /> Dashboard
-        </Link>
+      <div className="page animate-slide-up">
+        <Breadcrumb items={[
+          { label: "My RTIs", to: "/filing/dashboard" },
+          { label: rti?.registration_number || `RTI #${rtiId}` },
+        ]} />
 
-        <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
-          <div>
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1">
-              {rti?.registration_number ?? "Case detail"}
-            </p>
-            <h1 className="text-2xl font-bold text-slate-800">RTI Details</h1>
-          </div>
+        <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
+          <h1 className="page-title">{rti?.registration_number || `RTI #${rtiId}`}</h1>
           {DEMO_MODE && (
             <DemoTimeControls
               demoNow={demoNow}
@@ -1045,63 +1070,63 @@ function Detail() {
           )}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6">
-          <div className="space-y-4">
-            <div className="card">
-              <ContextBar rti={rti} />
+        {/* Status banner */}
+        {rti && (
+          <div className={
+            rti.is_overdue ? "status-banner-red" :
+            appealSubmitted ? "status-banner-green" :
+            isAwaitingResponse ? "status-banner-blue" : "status-banner-amber"
+          }>
+            <p className={`status-eyebrow ${
+              rti.is_overdue ? "text-red-700" : appealSubmitted ? "text-emerald-700" : "text-primary-700"
+            }`}>
+              {rti.is_overdue ? "Overdue" : appealSubmitted ? "First Appeal submitted" : humanStatus(rti.status).toUpperCase()}
+            </p>
+            <p className="text-base font-bold text-slate-900 mt-1">
+              {rti.is_overdue
+                ? "The response date has passed."
+                : appealSubmitted
+                ? `Reference ${rti.first_appeal?.appeal_reference_number}`
+                : rti.response_due_at
+                ? `Response due ${formatFriendlyDate(rti.response_due_at)}`
+                : "Ready to file"}
+            </p>
+            {rti.is_overdue && !hasAppeal && (
+              <p className="text-sm text-slate-600 mt-0.5">You can now consider filing a First Appeal.</p>
+            )}
+          </div>
+        )}
 
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
-                Final Request
-              </p>
-              <div className="bg-slate-50 border-l-4 border-primary-600 rounded-lg p-4 mb-5">
-                <pre className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap font-sans max-h-64 overflow-y-auto">
+        <div className="mt-6">
+          <p className="section-title">{rti?.authority_name}</p>
+          <p className="text-sm text-slate-500 mt-0.5">
+            {rti?.submitted_at && `Filed ${formatFriendlyDate(rti.submitted_at)}`}
+            {rti?.submitted_at && rti?.response_due_at && " · "}
+            {rti?.response_due_at && `Response due ${formatFriendlyDate(rti.response_due_at)}`}
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] gap-6 lg:gap-10 items-start mt-6">
+          <div className="space-y-6">
+            <div className="panel p-5 sm:p-6">
+              <p className="section-label mb-3">Your request</p>
+              <div className="bg-slate-50 border border-slate-100 rounded-lg p-4 mb-5">
+                <pre className="text-[15px] text-slate-700 leading-7 whitespace-pre-wrap font-sans max-h-72 overflow-y-auto">
                   {rti?.final_request ?? "Loading…"}
                 </pre>
               </div>
 
-              {isAwaitingResponse && rti?.response_due_at && (
-                <div className="mb-4">
-                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-                    Response Deadline
-                  </p>
-                  <DeadlineDisplay
-                    responseDueAt={rti.response_due_at}
+              {rti?.next_action && (
+                <>
+                  <p className="section-label mb-2">Next action</p>
+                  <NextActionCard
+                    nextAction={rti.next_action}
                     isOverdue={rti.is_overdue}
                     daysRemaining={rti.days_remaining}
                     daysOverdueCount={rti.days_overdue_count}
+                    onGenerateAppeal={rti.is_overdue ? generateAppeal : undefined}
+                    generating={generating}
                   />
-                </div>
-              )}
-
-              {rti?.next_action && (
-                <>
-                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-                    Next Action
-                  </p>
-
-                  {hasAppeal ? (
-                    <div className="rounded-2xl border-2 border-emerald-200 bg-emerald-50 p-5">
-                      <div className="flex items-center gap-2 mb-2">
-                        <CheckCircle2 size={18} className="text-emerald-600 shrink-0" />
-                        <p className="text-sm font-bold text-emerald-800">First Appeal ready to file</p>
-                      </div>
-                      <p className="text-sm text-emerald-700">
-                        Review, edit, copy, or download the generated First Appeal draft below.
-                      </p>
-                    </div>
-                  ) : (
-                    <NextActionCard
-                      nextAction={rti.next_action}
-                      isOverdue={rti.is_overdue}
-                      daysRemaining={rti.days_remaining}
-                      daysOverdueCount={rti.days_overdue_count}
-                      onGenerateAppeal={
-                        rti.is_overdue ? generateAppeal : undefined
-                      }
-                      generating={generating}
-                    />
-                  )}
-
                   {generateError && (
                     <p className="mt-2 text-xs text-red-600 flex items-center gap-1">
                       <AlertCircle size={12} /> {generateError}
@@ -1111,121 +1136,19 @@ function Detail() {
               )}
             </div>
 
-            {hasAppeal && rti?.first_appeal && (
-              <div className="card border-2 border-emerald-200 bg-emerald-50">
-                <div className="flex items-start justify-between gap-3 mb-4">
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-widest text-emerald-600 mb-0.5">
-                      First Appeal — Ready
-                    </p>
-                    <p className="text-base font-bold text-slate-800">{rti.first_appeal.title}</p>
-                    <p className="text-xs text-slate-500 mt-0.5">{rti.first_appeal.reason}</p>
-                  </div>
-                  <CheckCircle2 size={20} className="text-emerald-500 shrink-0 mt-1" />
-                </div>
-
-                {rti.submitted_at && (
-                  <div className="grid grid-cols-2 gap-3 mb-4 text-xs">
-                    <div className="bg-white rounded-lg p-2.5 border border-emerald-100">
-                      <p className="text-slate-400 font-semibold uppercase tracking-wider mb-0.5">Filed</p>
-                      <p className="text-slate-700 font-medium">{formatFriendlyDate(rti.submitted_at)}</p>
-                    </div>
-                    {rti.response_due_at && (
-                      <div className="bg-white rounded-lg p-2.5 border border-emerald-100">
-                        <p className="text-slate-400 font-semibold uppercase tracking-wider mb-0.5">Due</p>
-                        <p className="text-slate-700 font-medium">{formatFriendlyDate(rti.response_due_at)}</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <div className="mb-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                      Appeal Text
-                    </p>
-                    {!editing && (
-                      <button
-                        onClick={() => setEditing(true)}
-                        className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 transition-colors"
-                      >
-                        <Edit3 size={11} /> Edit
-                      </button>
-                    )}
-                  </div>
-
-                  <textarea
-                    value={appealText}
-                    onChange={(e) => setAppealText(e.target.value)}
-                    readOnly={!editing}
-                    rows={16}
-                    className={[
-                      "w-full text-xs font-mono leading-relaxed p-3 rounded-xl border resize-y transition-colors",
-                      editing
-                        ? "border-primary-300 bg-white focus:outline-none focus:ring-2 focus:ring-primary-200"
-                        : "border-slate-200 bg-slate-50 text-slate-700 cursor-default",
-                    ].join(" ")}
-                  />
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  {editing ? (
-                    <>
-                      <button
-                        onClick={saveAppeal}
-                        disabled={saving}
-                        className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold transition-colors disabled:opacity-60"
-                      >
-                        {saving ? "Saving…" : "Save changes"}
-                      </button>
-                      <button
-                        onClick={() => {
-                          setEditing(false);
-                          setAppealText(rti.first_appeal!.generated_text);
-                        }}
-                        className="flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-200 hover:border-slate-300 text-slate-600 rounded-lg text-sm font-semibold transition-colors"
-                      >
-                        Cancel
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button
-                        onClick={copyAppeal}
-                        className="flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-200 hover:border-slate-300 text-slate-600 rounded-lg text-sm font-semibold transition-colors"
-                      >
-                        <Copy size={13} /> {copied ? "Copied!" : "Copy"}
-                      </button>
-                      <button
-                        onClick={downloadAppeal}
-                        className="flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-200 hover:border-slate-300 text-slate-600 rounded-lg text-sm font-semibold transition-colors"
-                      >
-                        <Download size={13} /> Download .txt
-                      </button>
-                    </>
-                  )}
-                </div>
-
-                <p className="mt-3 text-[10px] text-slate-400 leading-relaxed">
-                  Prototype: Review all fields and verify the First Appellate Authority's address before filing.
-                </p>
-              </div>
-            )}
 
             {!isAwaitingResponse && rti?.submitted_at && (
-              <div className="card">
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
-                  Filing Dates
-                </p>
-                <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="panel p-5 sm:p-6">
+                <p className="eyebrow">Filing dates</p>
+                <div className="grid grid-cols-2 gap-3 text-sm mt-3">
                   <div>
-                    <p className="text-xs text-slate-400 mb-0.5">Submitted</p>
-                    <p className="font-medium text-slate-700">{formatFriendlyDate(rti.submitted_at)}</p>
+                    <p className="section-label">Submitted</p>
+                    <p className="font-medium text-slate-800 mt-1">{formatFriendlyDate(rti.submitted_at)}</p>
                   </div>
                   {rti.response_due_at && (
                     <div>
-                      <p className="text-xs text-slate-400 mb-0.5">Response due</p>
-                      <p className="font-medium text-slate-700">{formatFriendlyDate(rti.response_due_at)}</p>
+                      <p className="section-label">Response due</p>
+                      <p className="font-medium text-slate-800 mt-1">{formatFriendlyDate(rti.response_due_at)}</p>
                     </div>
                   )}
                 </div>
@@ -1233,19 +1156,17 @@ function Detail() {
             )}
 
             {rti?.documents && rti.documents.length > 0 && (
-              <div className="card">
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
-                  Documents
-                </p>
-                <div className="space-y-2">
+              <div className="panel p-5 sm:p-6">
+                <p className="eyebrow">Documents</p>
+                <div className="space-y-2 mt-3">
                   {rti.documents.map((d) => (
                     <div
                       key={d.id}
-                      className="flex items-center gap-3 bg-slate-50 border border-slate-100 rounded-xl px-4 py-3"
+                      className="flex items-center gap-3 border border-slate-200 rounded-lg px-4 py-3"
                     >
-                      <FileText size={15} className="text-primary-600 shrink-0" />
-                      <span className="text-sm text-slate-700 font-medium flex-1">{d.filename}</span>
-                      <span className="text-xs text-slate-400">{(d.size / 1024).toFixed(1)} KB</span>
+                      <FileText size={15} className="text-slate-400 shrink-0" />
+                      <span className="text-sm text-slate-700 font-medium flex-1 truncate">{d.filename}</span>
+                      <span className="text-xs text-slate-400 shrink-0">{(d.size / 1024).toFixed(1)} KB</span>
                     </div>
                   ))}
                 </div>
@@ -1253,33 +1174,36 @@ function Detail() {
             )}
           </div>
 
-          <div className="card h-fit">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-5">
-              Status Timeline
-            </p>
+          <aside className="panel p-5 h-fit lg:sticky lg:top-24">
+            <h3 className="section-title mb-4">RTI timeline</h3>
             {timeline.length === 0 ? (
-              <p className="text-sm text-slate-400 italic">No events yet.</p>
+              <p className="text-sm text-slate-400">No events yet.</p>
             ) : (
-              <div className="relative pl-6 border-l-2 border-slate-100 space-y-5">
-                {timeline.map((event) => (
-                  <div key={event.id} className="relative">
-                    <div className="absolute -left-[25px] w-5 h-5 rounded-full bg-emerald-500 border-2 border-white shadow flex items-center justify-center">
-                      <Check size={10} className="text-white" />
-                    </div>
-                    <p className="text-sm font-semibold text-slate-800 mb-0.5">{event.title}</p>
-                    <p className="text-xs text-slate-500 leading-relaxed">{event.description}</p>
-                    {event.status && (
-                      <span className="badge badge-blue mt-1.5 capitalize text-[10px]">
-                        {humanStatus(event.status)}
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
+              <ol className="space-y-3">
+                {timeline.map((event, i) => {
+                  const isLast = i === timeline.length - 1
+                  return (
+                    <li key={event.id} className="flex items-start gap-2.5">
+                      <span className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${isLast ? "bg-primary-600" : "bg-slate-300"}`} />
+                      <div>
+                        <p className="text-sm font-medium text-slate-800">{event.title}</p>
+                        <p className="text-xs text-slate-500 leading-relaxed mt-0.5">{event.description}</p>
+                      </div>
+                    </li>
+                  )
+                })}
+                {rti?.response_due_at && !rti.is_overdue && (
+                  <li className="flex items-start gap-2.5">
+                    <span className="mt-1.5 w-2 h-2 rounded-full shrink-0 border border-slate-300" />
+                    <p className="text-sm text-slate-400">Response due {formatFriendlyDate(rti.response_due_at)}</p>
+                  </li>
+                )}
+              </ol>
             )}
-          </div>
+          </aside>
         </div>
       </div>
+      <AppFooter />
     </div>
   );
 }
