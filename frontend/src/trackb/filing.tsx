@@ -627,13 +627,9 @@ function Dashboard() {
   async function runFastForwardDemo() {
     setFastforwarding(true);
     try {
-      // Fast-forward to 3 days past the first submitted RTI's deadline
+      // Fast-forward the demo clock without leaving the dashboard.
       await api("/demo/time/fastforward", { method: "POST" });
       await loadAll();
-      // Navigate to the first overdue RTI if any
-      const fresh = await api("/rtis").catch(() => []);
-      const overdue = fresh.find((r: any) => r.is_overdue);
-      if (overdue) navigate(`/filing/rtis/${overdue.id}`);
     } finally { setFastforwarding(false); }
   }
 

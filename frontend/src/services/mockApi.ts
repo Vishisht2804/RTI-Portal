@@ -514,8 +514,7 @@ export async function mockRequest(path: string, options: MockRequestOptions = {}
           throw new Error('Generate the First Appeal before submitting it.')
         }
         if (rti.first_appeal.submitted_at) {
-          // Idempotent — already submitted.
-          return { first_appeal: rti.first_appeal, simulated: true }
+          throw new Error('This First Appeal has already been submitted.')
         }
         rti.first_appeal = {
           ...rti.first_appeal,

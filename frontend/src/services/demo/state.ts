@@ -130,11 +130,9 @@ export function getNextAction(
   if (status === 'AWAITING_RESPONSE' && isOverdue) {
     if (appeal?.submitted_at) {
       return {
-        title: 'First Appeal submitted',
+        title: 'Awaiting response',
         description:
-          'Your First Appeal under Section 19(1) has been recorded in this prototype. No further action is required for the appeal.',
-        action: 'appeal_submitted',
-        action_url: `/filing/rtis/${rtiId}`,
+          'Your First Appeal has been recorded. Wait for the First Appellate Authority response; no further action is required right now.',
       }
     }
     if (appeal) {
