@@ -576,7 +576,7 @@ function Submitted() {
         with any government system.
       </SimulatedBanner>
 
-      <div className="card text-center">
+      <div className="card text-center mb-4">
         <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
           <CheckCircle2 size={40} className="text-emerald-600" />
         </div>
@@ -595,6 +595,20 @@ function Submitted() {
         ) : (
           <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 mb-6">
             <p className="text-sm text-slate-400 italic">Registration pending…</p>
+          </div>
+        )}
+
+        {rti?.response_due_at && (
+          <div className="mt-2 mb-6 text-left max-w-sm mx-auto">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+              Response Protection
+            </p>
+            <DeadlineDisplay
+              responseDueAt={rti.response_due_at}
+              isOverdue={rti.is_overdue}
+              daysRemaining={rti.days_remaining}
+              daysOverdueCount={rti.days_overdue_count}
+            />
           </div>
         )}
 
@@ -909,27 +923,129 @@ function RtiCard({ rti, onClick }: { rti: any; onClick: () => void }) {
 // ─── RTI Detail ────────────────────────────────────────────────────────────────
 
 function Detail() {
-  const { rti } = useRti();
+  const { rti, reload, rtiId } = useRti();
   const timeline = useMemo(() => rti?.status_events ?? [], [rti]);
+  const [demoNow, setDemoNow] = useState<string | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState("");
+  const [appealText, setAppealText] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (rti?.first_appeal?.generated_text) {
+      setAppealText(rti.first_appeal.generated_text);
+    }
+  }, [rti?.first_appeal?.generated_text]);
+
+  useEffect(() => {
+    if (DEMO_MODE) {
+      api("/demo/time")
+        .then((r) => setDemoNow(r?.demo_now ?? null))
+        .catch(() => {});
+    }
+  }, []);
+
+  async function advanceTime(days: number) {
+    await api("/demo/time/advance", { method: "POST", body: { days } });
+  }
+
+  async function resetTime() {
+    await api("/demo/time/reset", { method: "POST" });
+  }
+
+  async function handleTimeChange() {
+    const r = await api("/demo/time").catch(() => ({ demo_now: null }));
+    setDemoNow(r?.demo_now ?? null);
+    await reload();
+  }
+
+  async function generateAppeal() {
+    setGenerateError("");
+    setGenerating(true);
+    try {
+      const r = await api(`/rtis/${rtiId}/appeal/generate`, { method: "POST" });
+      setAppealText(r.first_appeal.generated_text);
+      await reload();
+    } catch (e) {
+      setGenerateError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  async function saveAppeal() {
+    setSaving(true);
+    try {
+      await api(`/rtis/${rtiId}/appeal`, {
+        method: "PATCH",
+        body: { generated_text: appealText },
+      });
+      await reload();
+      setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function copyAppeal() {
+    try {
+      await navigator.clipboard.writeText(appealText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard access may be unavailable in some browser contexts.
+    }
+  }
+
+  function downloadAppeal() {
+    const blob = new Blob([appealText], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const regNum = rti?.registration_number?.replace(/\//g, "-") ?? "rti";
+    a.download = `first-appeal-${regNum}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  const isAwaitingResponse = rti?.status === "AWAITING_RESPONSE";
+  const hasAppeal = Boolean(rti?.first_appeal);
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
       <AppHeader />
 
       <div className="max-w-7xl w-full mx-auto px-6 lg:px-8 py-10 animate-slide-up">
-        <Link to="/filing/dashboard" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 mb-6">
+        <Link
+          to="/filing/dashboard"
+          className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 mb-6"
+        >
           <ArrowLeft size={14} /> Dashboard
         </Link>
 
-        <div className="mb-6">
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1">
-            {rti?.registration_number ?? "Case detail"}
-          </p>
-          <h1 className="text-2xl font-bold text-slate-800">RTI Details</h1>
+        <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
+          <div>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1">
+              {rti?.registration_number ?? "Case detail"}
+            </p>
+            <h1 className="text-2xl font-bold text-slate-800">RTI Details</h1>
+          </div>
+          {DEMO_MODE && (
+            <DemoTimeControls
+              demoNow={demoNow}
+              onTimeChange={handleTimeChange}
+              onAdvance={advanceTime}
+              onReset={resetTime}
+              compact
+            />
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6">
-          {/* Left: Info */}
           <div className="space-y-4">
             <div className="card">
               <ContextBar rti={rti} />
@@ -943,18 +1059,178 @@ function Detail() {
                 </pre>
               </div>
 
+              {isAwaitingResponse && rti?.response_due_at && (
+                <div className="mb-4">
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                    Response Deadline
+                  </p>
+                  <DeadlineDisplay
+                    responseDueAt={rti.response_due_at}
+                    isOverdue={rti.is_overdue}
+                    daysRemaining={rti.days_remaining}
+                    daysOverdueCount={rti.days_overdue_count}
+                  />
+                </div>
+              )}
+
               {rti?.next_action && (
                 <>
                   <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-                    Next Step
+                    Next Action
                   </p>
-                  <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
-                    <p className="text-sm font-semibold text-blue-800 mb-1">{rti.next_action.title}</p>
-                    <p className="text-sm text-blue-700">{rti.next_action.description}</p>
-                  </div>
+
+                  {hasAppeal ? (
+                    <div className="rounded-2xl border-2 border-emerald-200 bg-emerald-50 p-5">
+                      <div className="flex items-center gap-2 mb-2">
+                        <CheckCircle2 size={18} className="text-emerald-600 shrink-0" />
+                        <p className="text-sm font-bold text-emerald-800">First Appeal ready to file</p>
+                      </div>
+                      <p className="text-sm text-emerald-700">
+                        Review, edit, copy, or download the generated First Appeal draft below.
+                      </p>
+                    </div>
+                  ) : (
+                    <NextActionCard
+                      nextAction={rti.next_action}
+                      isOverdue={rti.is_overdue}
+                      daysRemaining={rti.days_remaining}
+                      daysOverdueCount={rti.days_overdue_count}
+                      onGenerateAppeal={
+                        rti.is_overdue ? generateAppeal : undefined
+                      }
+                      generating={generating}
+                    />
+                  )}
+
+                  {generateError && (
+                    <p className="mt-2 text-xs text-red-600 flex items-center gap-1">
+                      <AlertCircle size={12} /> {generateError}
+                    </p>
+                  )}
                 </>
               )}
             </div>
+
+            {hasAppeal && rti?.first_appeal && (
+              <div className="card border-2 border-emerald-200 bg-emerald-50">
+                <div className="flex items-start justify-between gap-3 mb-4">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-widest text-emerald-600 mb-0.5">
+                      First Appeal — Ready
+                    </p>
+                    <p className="text-base font-bold text-slate-800">{rti.first_appeal.title}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">{rti.first_appeal.reason}</p>
+                  </div>
+                  <CheckCircle2 size={20} className="text-emerald-500 shrink-0 mt-1" />
+                </div>
+
+                {rti.submitted_at && (
+                  <div className="grid grid-cols-2 gap-3 mb-4 text-xs">
+                    <div className="bg-white rounded-lg p-2.5 border border-emerald-100">
+                      <p className="text-slate-400 font-semibold uppercase tracking-wider mb-0.5">Filed</p>
+                      <p className="text-slate-700 font-medium">{formatFriendlyDate(rti.submitted_at)}</p>
+                    </div>
+                    {rti.response_due_at && (
+                      <div className="bg-white rounded-lg p-2.5 border border-emerald-100">
+                        <p className="text-slate-400 font-semibold uppercase tracking-wider mb-0.5">Due</p>
+                        <p className="text-slate-700 font-medium">{formatFriendlyDate(rti.response_due_at)}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="mb-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                      Appeal Text
+                    </p>
+                    {!editing && (
+                      <button
+                        onClick={() => setEditing(true)}
+                        className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 transition-colors"
+                      >
+                        <Edit3 size={11} /> Edit
+                      </button>
+                    )}
+                  </div>
+
+                  <textarea
+                    value={appealText}
+                    onChange={(e) => setAppealText(e.target.value)}
+                    readOnly={!editing}
+                    rows={16}
+                    className={[
+                      "w-full text-xs font-mono leading-relaxed p-3 rounded-xl border resize-y transition-colors",
+                      editing
+                        ? "border-primary-300 bg-white focus:outline-none focus:ring-2 focus:ring-primary-200"
+                        : "border-slate-200 bg-slate-50 text-slate-700 cursor-default",
+                    ].join(" ")}
+                  />
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  {editing ? (
+                    <>
+                      <button
+                        onClick={saveAppeal}
+                        disabled={saving}
+                        className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold transition-colors disabled:opacity-60"
+                      >
+                        {saving ? "Saving…" : "Save changes"}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEditing(false);
+                          setAppealText(rti.first_appeal!.generated_text);
+                        }}
+                        className="flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-200 hover:border-slate-300 text-slate-600 rounded-lg text-sm font-semibold transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={copyAppeal}
+                        className="flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-200 hover:border-slate-300 text-slate-600 rounded-lg text-sm font-semibold transition-colors"
+                      >
+                        <Copy size={13} /> {copied ? "Copied!" : "Copy"}
+                      </button>
+                      <button
+                        onClick={downloadAppeal}
+                        className="flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-200 hover:border-slate-300 text-slate-600 rounded-lg text-sm font-semibold transition-colors"
+                      >
+                        <Download size={13} /> Download .txt
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                <p className="mt-3 text-[10px] text-slate-400 leading-relaxed">
+                  Prototype: Review all fields and verify the First Appellate Authority's address before filing.
+                </p>
+              </div>
+            )}
+
+            {!isAwaitingResponse && rti?.submitted_at && (
+              <div className="card">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
+                  Filing Dates
+                </p>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <p className="text-xs text-slate-400 mb-0.5">Submitted</p>
+                    <p className="font-medium text-slate-700">{formatFriendlyDate(rti.submitted_at)}</p>
+                  </div>
+                  {rti.response_due_at && (
+                    <div>
+                      <p className="text-xs text-slate-400 mb-0.5">Response due</p>
+                      <p className="font-medium text-slate-700">{formatFriendlyDate(rti.response_due_at)}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {rti?.documents && rti.documents.length > 0 && (
               <div className="card">
@@ -977,7 +1253,6 @@ function Detail() {
             )}
           </div>
 
-          {/* Right: Timeline */}
           <div className="card h-fit">
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-5">
               Status Timeline
