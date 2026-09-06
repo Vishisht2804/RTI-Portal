@@ -56,7 +56,16 @@ export function WizardProvider({ children }: { children: React.ReactNode }) {
   const ctx: WizardContextType = {
     state,
     setQuery:      (q) => patch({ originalQuery: q }),
-    setIntent:     (r) => patch({ intentResult: r }),
+    setIntent:     (r) => patch({
+      intentResult: r,
+      authorityResult: null,
+      selectedAuthority: null,
+      ambiguityChoiceId: null,
+      draftResult: null,
+      editedDraftText: null,
+      validationResult: null,
+      rtiCreateResult: null,
+    }),
     setAuthority:  (r, sel) => patch({ authorityResult: r, selectedAuthority: sel }),
     setAmbiguityChoice: (id) => patch({ ambiguityChoiceId: id }),
     setDraft:      (r) => patch({ draftResult: r, editedDraftText: r.draft_text }),

@@ -60,7 +60,7 @@ const DRAFT_EXPLANATION =
   "CPIO to locate and provide the exact records you need. Asking for 'certified copies' is " +
   'the correct RTI phrasing.'
 
-import { analyzeQuery, scoreAuthorities, detectAmbiguity } from './demo/routing'
+import { analyzeQuery, scoreAuthorities, detectAmbiguity, getDemoRoutingExplanation } from './demo/routing'
 
 export async function analyzeIntent(req: IntentRequest): Promise<IntentResponse> {
   await delay()
@@ -154,7 +154,12 @@ export async function recommendAuthority(
     ...inScope.filter((a) => a.authority_id !== primary.authority_id && a.category !== category),
   ].slice(0, 2)
 
-  return { primary, alternatives, ambiguity }
+  return {
+    primary,
+    alternatives,
+    routing_explanation: getDemoRoutingExplanation(req.original_query || '') ?? undefined,
+    ambiguity,
+  }
 }
 
 export async function generateDraft(

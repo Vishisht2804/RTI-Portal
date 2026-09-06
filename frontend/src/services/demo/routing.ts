@@ -72,7 +72,6 @@ interface DemoScenario {
   category: RTICategory
   primaryId: number
   altIds: number[]
-  pinnedScore: number
 }
 
 const DEMO_SCENARIOS: DemoScenario[] = [
@@ -80,25 +79,25 @@ const DEMO_SCENARIOS: DemoScenario[] = [
     key: 'health_central',
     tokens: ['ministry of health', 'government hospitals'],
     jurisdiction: 'central', category: 'health',
-    primaryId: 1, altIds: [2], pinnedScore: 92,
+    primaryId: 1, altIds: [2],
   },
   {
     key: 'education_central',
     tokens: ['iit', 'union government'],
     jurisdiction: 'central', category: 'education',
-    primaryId: 3, altIds: [], pinnedScore: 89,
+    primaryId: 3, altIds: [],
   },
   {
     key: 'railways_central',
     tokens: ['railway station', 'redevelopment'],
     jurisdiction: 'central', category: 'infrastructure',
-    primaryId: 9, altIds: [11], pinnedScore: 87,
+    primaryId: 9, altIds: [11],
   },
   {
     key: 'health_karnataka',
     tokens: ['karnataka', 'district hospitals', 'health and family welfare'],
     jurisdiction: 'state', category: 'health',
-    primaryId: 31, altIds: [], pinnedScore: 91,
+    primaryId: 31, altIds: [],
   },
 ]
 
@@ -110,6 +109,89 @@ export function matchDemoScenario(raw: string): DemoScenario | null {
     }
   }
   return null
+}
+
+interface DemoAuthorityFixture {
+  query: string
+  routingExplanation: string
+  primary: AuthorityResult
+  alternatives: AuthorityResult[]
+}
+
+const fixtureAuthority = (
+  id: number,
+  score: number,
+  confidence: 'high' | 'medium' | 'low',
+  description: string,
+  reason: string,
+): AuthorityResult => {
+  const authority = byId(id)
+  return {
+    authority_id: authority.authority_id,
+    name: authority.name,
+    jurisdiction: authority.jurisdiction,
+    category: authority.category,
+    description,
+    reason,
+    confidence,
+    confidence_score: score,
+    confidence_level: confidence,
+    reasoning: [reason],
+    matched_signals: [],
+  }
+}
+
+const DEMO_AUTHORITY_FIXTURES: DemoAuthorityFixture[] = [
+  {
+    query: 'How much did the Ministry of Health spend on government hospitals in 2025?',
+    routingExplanation:
+      'The routing decision considers jurisdiction, topic, and the type of records requested. This request directly names a Central Government ministry responsible for the subject matter, resulting in a high-confidence match.',
+    primary: fixtureAuthority(
+      1,
+      92,
+      'high',
+      'Apex body for health policy, national health programmes, AIIMS, and Central Government hospitals.',
+      'Recommended because the request directly concerns health expenditure and records held by the Ministry of Health and Family Welfare.',
+    ),
+    alternatives: [],
+  },
+  {
+    query: 'What approvals, procurement expenditure, and regulatory clearances were involved in the procurement of medical devices for Central Government hospitals in 2025?',
+    routingExplanation:
+      'The request spans more than one Central Government function. Health-system procurement points primarily to the Ministry of Health and Family Welfare, while medical-device regulation may involve another Central authority. The routing therefore identifies a primary authority while preserving plausible alternatives.',
+    primary: fixtureAuthority(
+      1,
+      82,
+      'high',
+      'Central authority responsible for national health policy, programmes, and Central Government healthcare institutions.',
+      'Recommended because the request concerns procurement for Central Government hospitals and includes health-system approvals and expenditure.',
+    ),
+    alternatives: [
+      fixtureAuthority(
+        2,
+        76,
+        'medium',
+        'Central regulator for drugs, medical devices, cosmetics, and related regulatory matters.',
+        'A plausible alternative because the request explicitly asks about regulatory clearances for medical devices.',
+      ),
+      fixtureAuthority(
+        5,
+        61,
+        'low',
+        'Central authority responsible for Union Government financial policy, budgeting, and expenditure frameworks.',
+        'A secondary possibility because the request asks about procurement expenditure and financial approvals, although the subject matter is primarily health-related.',
+      ),
+    ],
+  },
+]
+
+const fixtureForQuery = (raw: string) => {
+  const normalized = norm(raw).trim()
+  return DEMO_AUTHORITY_FIXTURES.find((fixture) => norm(fixture.query).trim() === normalized) ?? null
+}
+
+export function getDemoRoutingExplanation(raw: string): string | null {
+  return fixtureForQuery(raw)?.routingExplanation ?? null
 }
 
 // ─── Topic dictionary ─────────────────────────────────────────────────────────
@@ -380,15 +462,8 @@ export function scoreAuthority(auth: MockAuthority, s: QuerySignals, raw: string
 }
 
 export function scoreAuthorities(s: QuerySignals, raw: string): ScoredAuthority[] {
-  // Demo scenario: return pinned results only for the recognised preset queries
-  const demoSc = matchDemoScenario(raw)
-  if (demoSc) {
-    const results: ScoredAuthority[] = [buildDemoResult(demoSc.primaryId, s, raw, demoSc.pinnedScore)]
-    demoSc.altIds.forEach((id, i) =>
-      results.push(buildDemoResult(id, s, raw, demoSc.pinnedScore - 15 - i * 5)),
-    )
-    return results
-  }
+  const fixture = fixtureForQuery(raw)
+  if (fixture) return [fixture.primary, ...fixture.alternatives]
 
   const pool = new Set<number>(s.candidateAuthorityIds)
   // add same-category same-jurisdiction peers so alternatives exist
@@ -436,8 +511,8 @@ export function detectAmbiguity(
   scored: ScoredAuthority[],
   raw: string,
 ): Ambiguity | null {
-  // Never trigger ambiguity for pinned demo scenarios
-  if (matchDemoScenario(raw)) return null
+  // Never trigger ambiguity for deterministic demo fixtures or scenarios.
+  if (matchDemoScenario(raw) || fixtureForQuery(raw)) return null
 
   if (scored.length < 2) return null
   const [a, b] = scored

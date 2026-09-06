@@ -87,6 +87,8 @@ export interface Ambiguity {
 export interface AuthorityRecommendResponse {
   primary: AuthorityResult
   alternatives: AuthorityResult[]
+  /** Optional plain-language explanation supplied by the deterministic router. */
+  routing_explanation?: string
   /** null unless the query is genuinely ambiguous between authorities. */
   ambiguity: Ambiguity | null
 }

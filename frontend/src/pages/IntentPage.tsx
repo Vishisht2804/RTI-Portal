@@ -14,12 +14,8 @@ const EXAMPLES: { label: string; query: string }[] = [
     query: 'How much did the Ministry of Health spend on government hospitals in 2025?',
   },
   {
-    label: 'IIT approvals',
-    query: 'Provide the number of new IITs approved by the Union Government between 2020 and 2025, along with the approval orders.',
-  },
-  {
-    label: 'Railway redevelopment',
-    query: 'Please provide the sanctioned cost, revised cost, and completion status of railway station redevelopment projects approved between 2022 and 2025.',
+    label: 'Medical device procurement',
+    query: 'What approvals, procurement expenditure, and regulatory clearances were involved in the procurement of medical devices for Central Government hospitals in 2025?',
   },
   {
     label: 'Karnataka hospital spending',
@@ -85,10 +81,10 @@ export default function IntentPage() {
 
       {/* ── Masthead band — pitch + form, side by side ───────────────────── */}
       <div className="bg-primary-900 text-white">
-        <div className="shell-wide py-12 lg:py-16 animate-slide-up
+        <div className="shell-wide py-8 lg:py-10 animate-slide-up
                         grid gap-10 lg:gap-12 xl:gap-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,680px)] lg:items-start">
           {/* Left — the pitch */}
-          <div className="lg:pt-8">
+          <div className="lg:pt-4">
             <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary-300">
               Right to Information Act, 2005 · Jurisdiction-aware routing
             </p>
@@ -157,7 +153,7 @@ export default function IntentPage() {
               </div>
             </div>
 
-            <div className="mt-6 pt-5 border-t border-slate-100 flex items-center justify-between gap-3">
+            <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between gap-3">
               <span className="text-[13px] text-slate-400">Saved locally in demo mode.</span>
               <button
                 onClick={handleSubmit}

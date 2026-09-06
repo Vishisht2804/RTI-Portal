@@ -237,9 +237,16 @@ export default function SuitabilityPage() {
               </div>
             </div>
 
-            <button onClick={() => navigate('/authority')} className="btn-primary w-full mt-4">
-              {isSuitable ? 'Continue to authority' : 'Continue anyway'}
-            </button>
+            {isState ? (
+              <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                This request concerns a state authority, so it cannot continue through the central RTI filing flow.
+                Use your state's RTI portal or submit it to the State Public Information Officer.
+              </div>
+            ) : (
+              <button onClick={() => navigate('/authority')} className="btn-primary w-full mt-4">
+                {isSuitable ? 'Continue to authority' : 'Continue anyway'}
+              </button>
+            )}
             {grievance?.detected ? (
               <button
                 onClick={() => setBranch('reframe')}
