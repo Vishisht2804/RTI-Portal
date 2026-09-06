@@ -96,16 +96,16 @@ export default function IntentPage() {
               finds the Public Information Officer who holds the records, prepares the application,
               and tracks the response.
             </p>
-            <p className="mt-6 text-[13px] text-primary-200">
-              Reviewing the prototype?{' '}
-              <Link to="/filing/dashboard" className="font-medium text-white hover:underline">
-                Jump straight to filing →
-              </Link>
-            </p>
+            <img
+              src="/images/wide_infographic_on_a_dark_blue_background_clean.png"
+              // src="/images/Gemini_Generated_Image_b05q01b05q01b05q.png"
+              alt="RTI Navigator flow: Ask, Understand, choose the grievance or RTI route, Route, Prepare, File, Protect, and Act"
+              className="block w-full max-w-full h-auto mt-8"
+            />
           </div>
 
           {/* Right — the request form */}
-          <div className="panel p-6 sm:p-8 shadow-[0_1px_2px_rgba(15,23,42,0.06),0_24px_56px_-24px_rgba(2,6,23,0.55)]">
+          <div className="panel p-6 sm:p-8 lg:p-6 shadow-[0_1px_2px_rgba(15,23,42,0.06),0_24px_56px_-24px_rgba(2,6,23,0.55)]">
             <p className="eyebrow">Start with your question</p>
             <h2 className="text-[22px] font-bold text-slate-900 mt-2">What information do you need?</h2>
             <p className="text-sm text-slate-500 mt-2 leading-relaxed">
@@ -113,7 +113,7 @@ export default function IntentPage() {
             </p>
 
             <textarea
-              className="input-base mt-4 min-h-[150px] resize-y text-[15px] leading-relaxed"
+              className="input-base mt-4 min-h-[150px] lg:min-h-[115px] resize-y text-[15px] leading-relaxed"
               placeholder="For example: How much did the Ministry of Health spend on government hospitals in 2025?"
               value={text}
               onChange={(e) => { setText(e.target.value); setError('') }}
@@ -132,7 +132,7 @@ export default function IntentPage() {
               </p>
             )}
 
-            <div className="mt-5">
+            <div className="mt-5 lg:mt-4">
               <p className="section-label mb-2">Try an example</p>
               <div className="flex flex-col divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden">
                 {EXAMPLES.map((ex) => (
@@ -140,7 +140,7 @@ export default function IntentPage() {
                     key={ex.label}
                     onClick={() => { setText(ex.query); setError('') }}
                     disabled={mutation.isPending}
-                    className="text-left px-3.5 py-2.5 leading-snug transition-colors hover:bg-slate-50 group"
+                    className="text-left px-3.5 py-2.5 lg:py-2 leading-snug transition-colors hover:bg-slate-50 group"
                   >
                     <span className="block text-[11px] font-semibold uppercase tracking-wide text-primary-600 group-hover:text-primary-700">
                       {ex.label}
@@ -153,7 +153,7 @@ export default function IntentPage() {
               </div>
             </div>
 
-            <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between gap-3">
+            <div className="mt-5 lg:mt-4 pt-4 lg:pt-3 border-t border-slate-100 flex items-center justify-between gap-3">
               <span className="text-[13px] text-slate-400">Saved locally in demo mode.</span>
               <button
                 onClick={handleSubmit}
