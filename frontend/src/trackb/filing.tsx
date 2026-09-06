@@ -13,12 +13,17 @@ import {
   Check, CheckCircle2, Circle, CreditCard, FileText,
   LayoutDashboard, RefreshCw, Send, Upload, AlertCircle,
   ChevronRight, Clock, User, ArrowLeft, PlusCircle, SparklesIcon,
+  Copy, Download, Edit3, FastForward, Shield,
 } from "lucide-react";
 import { AppHeader } from "../components/common/AppHeader";
 import { SimulatedBanner } from "../components/common/SimulatedBanner";
 import { DisclosureCard } from "../components/common/DisclosureCard";
+import { DemoTimeControls } from "../components/common/DemoTimeControls";
+import { DeadlineDisplay, DeadlineBadge } from "../components/common/DeadlineDisplay";
+import { NextActionCard } from "../components/common/NextActionCard";
 import { DEMO_MODE } from "../services/demo/config";
 import { mockRequest, mockUploadDocument } from "../services/mockApi";
+import { formatFriendlyDate } from "../utils/deadline";
 
 const API_URL = "/api/v1";
 
@@ -28,11 +33,25 @@ export type RtiDetail = {
   id: number;
   registration_number: string | null;
   authority_name: string;
+  original_query: string;
   status: string;
   final_request: string;
+  submitted_at: string | null;
+  response_due_at: string | null;
+  is_overdue: boolean;
+  days_remaining: number | null;
+  days_overdue_count: number;
+  demo_now: string | null;
+  applicant: { id: number; name: string; email: string; phone: string } | null;
   documents: { id: number; filename: string; size: number }[];
   status_events: { id: number; title: string; description: string; status: string }[];
   next_action: { title: string; description: string; action?: string; action_url?: string };
+  first_appeal: {
+    generated_at: string;
+    title: string;
+    reason: string;
+    generated_text: string;
+  } | null;
 };
 
 // ─── API helper ───────────────────────────────────────────────────────────────
@@ -596,24 +615,33 @@ function Submitted() {
 
 function Dashboard() {
   const [rtis, setRtis] = useState<any[]>([]);
+  const [demoNow, setDemoNow] = useState<string | null>(null);
   const [resetting, setResetting] = useState(false);
+  const [fastforwarding, setFastforwarding] = useState(false);
   const navigate = useNavigate();
 
-  useEffect(() => { api("/rtis").then(setRtis).catch(() => {}); }, []);
+  async function loadAll() {
+    const [list, time] = await Promise.all([
+      api("/rtis").catch(() => []),
+      DEMO_MODE ? api("/demo/time").catch(() => ({ demo_now: null })) : Promise.resolve({ demo_now: null }),
+    ]);
+    setRtis(list);
+    setDemoNow(time?.demo_now ?? null);
+  }
+
+  useEffect(() => { loadAll(); }, []);
 
   async function reset() {
     setResetting(true);
     try {
       await api("/demo/reset", { method: "POST" });
-      setRtis(await api("/rtis"));
+      await loadAll();
     } finally { setResetting(false); }
   }
 
   async function jumpToFiling() {
     const ready = rtis.find((r) => r.status === "READY_TO_FILE");
     if (ready) { navigate(`/filing/${ready.id}/applicant`); return; }
-    // Nothing fileable left — mint a fresh Ready-to-File RTI (demo) so the
-    // filing flow stays usable without a Demo reset.
     if (DEMO_MODE) {
       try {
         const r = await api("/demo/rti", { method: "POST" });
@@ -624,36 +652,124 @@ function Dashboard() {
     navigate(`/filing/${rtis[0]?.id ?? 1}/applicant`);
   }
 
+  async function advanceTime(days: number) {
+    await api("/demo/time/advance", { method: "POST", body: { days } });
+  }
+
+  async function resetTime() {
+    await api("/demo/time/reset", { method: "POST" });
+  }
+
+  async function runFastForwardDemo() {
+    setFastforwarding(true);
+    try {
+      // Fast-forward to 3 days past the first submitted RTI's deadline
+      await api("/demo/time/fastforward", { method: "POST" });
+      await loadAll();
+      // Navigate to the first overdue RTI if any
+      const fresh = await api("/rtis").catch(() => []);
+      const overdue = fresh.find((r: any) => r.is_overdue);
+      if (overdue) navigate(`/filing/rtis/${overdue.id}`);
+    } finally { setFastforwarding(false); }
+  }
+
+  // Partition RTIs by urgency
+  const overdueRtis = rtis.filter((r) => r.is_overdue && r.status === "AWAITING_RESPONSE");
+  const awaitingRtis = rtis.filter((r) => !r.is_overdue && r.status === "AWAITING_RESPONSE");
+  const activeRtis = rtis.filter(
+    (r) => r.status !== "AWAITING_RESPONSE" && r.status !== "RESPONSE_RECEIVED",
+  );
+  const doneRtis = rtis.filter((r) => r.status === "RESPONSE_RECEIVED");
+  const attentionCount = overdueRtis.length;
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
       <AppHeader />
 
       <div className="max-w-6xl w-full mx-auto px-6 lg:px-8 py-10 animate-slide-up">
 
-        {/* Heading + demo reset (de-emphasized) */}
-        <div className="flex items-start justify-between mb-5">
+        {/* Heading row */}
+        <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
           <div>
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1">Citizen RTIs</p>
             <h1 className="text-2xl font-bold text-slate-800">Dashboard</h1>
           </div>
-          <button
-            onClick={reset}
-            disabled={resetting}
-            className="text-xs text-slate-400 hover:text-slate-600 flex items-center gap-1.5 mt-1 px-3 py-1.5 rounded-lg border border-slate-200 hover:border-slate-300 transition-colors"
-          >
-            <RefreshCw size={11} className={resetting ? "animate-spin" : ""} />
-            {resetting ? "Resetting…" : "Demo reset"}
-          </button>
+          <div className="flex items-center gap-2">
+            {DEMO_MODE && (
+              <DemoTimeControls
+                demoNow={demoNow}
+                onTimeChange={loadAll}
+                onAdvance={advanceTime}
+                onReset={resetTime}
+                compact
+              />
+            )}
+            <button
+              onClick={reset}
+              disabled={resetting}
+              className="text-xs text-slate-400 hover:text-slate-600 flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 hover:border-slate-300 transition-colors"
+            >
+              <RefreshCw size={11} className={resetting ? "animate-spin" : ""} />
+              {resetting ? "Resetting…" : "Demo reset"}
+            </button>
+          </div>
         </div>
 
-        {/* Primary CTA */}
-        <div className="card mb-8 bg-gradient-to-br from-primary-800 to-primary-700 border-primary-700 text-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-5">
+        {/* ── ATTENTION REQUIRED ─────────────────────────────────────────── */}
+        {attentionCount > 0 && (
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-5 h-5 rounded-full bg-red-600 flex items-center justify-center">
+                <span className="text-white text-[10px] font-bold">{attentionCount}</span>
+              </div>
+              <p className="text-sm font-bold text-red-700 uppercase tracking-wider">
+                {attentionCount} action{attentionCount !== 1 ? "s" : ""} required
+              </p>
+            </div>
+            <div className="space-y-3">
+              {overdueRtis.map((rti) => (
+                <div
+                  key={rti.id}
+                  className="card border-2 border-red-200 bg-red-50 hover:border-red-300 cursor-pointer transition-all duration-200 active:scale-[0.99]"
+                  onClick={() => navigate(`/filing/rtis/${rti.id}`)}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                        <span className="badge badge-red">Overdue</span>
+                        {rti.registration_number && (
+                          <span className="badge badge-slate font-mono text-[10px]">{rti.registration_number}</span>
+                        )}
+                        <DeadlineBadge
+                          isOverdue={rti.is_overdue}
+                          daysRemaining={rti.days_remaining}
+                          daysOverdueCount={rti.days_overdue_count}
+                        />
+                      </div>
+                      <p className="font-semibold text-slate-800 mb-0.5 truncate">{rti.authority_name}</p>
+                      {rti.subject && (
+                        <p className="text-sm text-slate-500 line-clamp-1 mb-2">{rti.subject}</p>
+                      )}
+                      <div className="flex items-center gap-1.5 text-xs text-red-700 font-semibold">
+                        <FileText size={11} />
+                        Generate First Appeal →
+                      </div>
+                    </div>
+                    <ChevronRight size={16} className="text-red-300 shrink-0 mt-1" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Primary CTA ───────────────────────────────────────────────── */}
+        <div className="card mb-6 bg-gradient-to-br from-primary-800 to-primary-700 border-primary-700 text-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-5">
           <div>
             <p className="text-xs font-semibold uppercase tracking-widest text-blue-200 mb-1">Start here</p>
             <h2 className="text-xl font-bold mb-1">File a New RTI</h2>
             <p className="text-blue-100 text-sm leading-relaxed max-w-md">
-              Describe what you need and let RTI Navigator prepare the application, or jump
-              straight into the filing steps with the demo request.
+              Describe what you need and RTI Navigator prepares the application — then tracks the response deadline.
             </p>
           </div>
           <div className="flex items-center gap-3 shrink-0">
@@ -672,60 +788,120 @@ function Dashboard() {
           </div>
         </div>
 
+        {/* ── Response Protection demo shortcut ─────────────────────────── */}
+        {DEMO_MODE && (
+          <div className="card mb-6 border-violet-200 bg-violet-50">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-xl bg-violet-600 flex items-center justify-center shrink-0">
+                <Shield size={16} className="text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold uppercase tracking-widest text-violet-500 mb-0.5">
+                  Response Protection — Demo
+                </p>
+                <p className="text-sm font-semibold text-slate-800 mb-0.5">
+                  See what happens when there is no response
+                </p>
+                <p className="text-xs text-slate-500 mb-3">
+                  Fast-forward the demo clock past the 30-day deadline to experience RTI Navigator's
+                  overdue detection and First Appeal generation.
+                </p>
+                <button
+                  onClick={runFastForwardDemo}
+                  disabled={fastforwarding}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-sm font-semibold transition-colors disabled:opacity-60"
+                >
+                  <FastForward size={14} />
+                  {fastforwarding ? "Fast-forwarding…" : "Run 30-day demo"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <DisclosureCard />
 
-        {/* RTI list */}
-        {rtis.length === 0 ? (
+        {/* ── Awaiting response ─────────────────────────────────────────── */}
+        {awaitingRtis.length > 0 && (
+          <div className="mb-6">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Awaiting Response</p>
+            <div className="space-y-3">
+              {awaitingRtis.map((rti) => (
+                <RtiCard key={rti.id} rti={rti} onClick={() => navigate(`/filing/rtis/${rti.id}`)} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Active (filing in progress) ───────────────────────────────── */}
+        {activeRtis.length > 0 && (
+          <div className="mb-6">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">In Progress</p>
+            <div className="space-y-3">
+              {activeRtis.map((rti) => (
+                <RtiCard key={rti.id} rti={rti} onClick={() => navigate(`/filing/rtis/${rti.id}`)} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Done ─────────────────────────────────────────────────────── */}
+        {doneRtis.length > 0 && (
+          <div className="mb-6">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Completed</p>
+            <div className="space-y-3">
+              {doneRtis.map((rti) => (
+                <RtiCard key={rti.id} rti={rti} onClick={() => navigate(`/filing/rtis/${rti.id}`)} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {rtis.length === 0 && (
           <div className="card text-center py-12">
             <FileText size={40} className="text-slate-300 mx-auto mb-3" />
             <p className="text-slate-500 font-medium">No RTIs yet</p>
             <p className="text-sm text-slate-400 mt-1 mb-5">File your first RTI using the button above</p>
           </div>
-        ) : (
-          <>
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Your Applications</p>
-            <div className="space-y-3">
-              {rtis.map((rti) => {
-                const badgeClass = STATUS_BADGE[rti.status] ?? "badge-slate";
-                return (
-                  <div
-                    key={rti.id}
-                    onClick={() => navigate(`/filing/rtis/${rti.id}`)}
-                    className="card hover:shadow-md hover:border-primary-100 cursor-pointer transition-all duration-200 active:scale-[0.99]"
-                  >
-                    {/* Status + reg number */}
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className={`badge ${badgeClass}`}>{humanStatus(rti.status ?? "draft")}</span>
-                      {rti.registration_number && (
-                        <span className="badge badge-slate font-mono text-[10px]">
-                          {rti.registration_number}
-                        </span>
-                      )}
-                      <ChevronRight size={14} className="text-slate-300 ml-auto shrink-0" />
-                    </div>
-
-                    {/* Authority */}
-                    <p className="font-semibold text-slate-800 mb-0.5">{rti.authority_name}</p>
-
-                    {/* Subject */}
-                    {rti.subject && (
-                      <p className="text-sm text-slate-500 line-clamp-2 mb-2">{rti.subject}</p>
-                    )}
-
-                    {/* Next action */}
-                    {rti.next_action?.title && (
-                      <div className="flex items-center gap-1.5 text-xs text-primary-600 font-medium mt-1">
-                        <Clock size={11} />
-                        Next: {rti.next_action.title}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </>
         )}
       </div>
+    </div>
+  );
+}
+
+// ─── Dashboard RTI card ───────────────────────────────────────────────────────
+
+function RtiCard({ rti, onClick }: { rti: any; onClick: () => void }) {
+  const badgeClass = STATUS_BADGE[rti.status] ?? "badge-slate";
+  return (
+    <div
+      onClick={onClick}
+      className="card hover:shadow-md hover:border-primary-100 cursor-pointer transition-all duration-200 active:scale-[0.99]"
+    >
+      <div className="flex items-start gap-2 mb-2">
+        <span className={`badge ${badgeClass}`}>{humanStatus(rti.status ?? "draft")}</span>
+        {rti.registration_number && (
+          <span className="badge badge-slate font-mono text-[10px]">{rti.registration_number}</span>
+        )}
+        {rti.days_remaining !== null && (
+          <DeadlineBadge
+            isOverdue={rti.is_overdue}
+            daysRemaining={rti.days_remaining}
+            daysOverdueCount={rti.days_overdue_count}
+          />
+        )}
+        <ChevronRight size={14} className="text-slate-300 ml-auto shrink-0" />
+      </div>
+      <p className="font-semibold text-slate-800 mb-0.5">{rti.authority_name}</p>
+      {rti.subject && (
+        <p className="text-sm text-slate-500 line-clamp-2 mb-2">{rti.subject}</p>
+      )}
+      {rti.next_action?.title && (
+        <div className="flex items-center gap-1.5 text-xs text-primary-600 font-medium mt-1">
+          <Clock size={11} />
+          Next: {rti.next_action.title}
+        </div>
+      )}
     </div>
   );
 }

@@ -20,8 +20,10 @@ import {
   DEMO_OTP, PAYMENT_AMOUNT,
   addStatusEvent, findRti, nextId, registrationNumber, resetState, seedReadyToFileRti,
   serializeRtiDetail, serializeRtiListItem, transition, withState,
-  type DemoRti, type RtiStatus,
+  type DemoRti, type RtiStatus, type FirstAppeal,
 } from './demo/state'
+import { addDays, getDemoNow, daysOverdue as calcDaysOverdue, isOverdue as calcIsOverdue } from '../utils/deadline'
+import { generateAppealText } from '../utils/appealGenerator'
 
 // Small artificial latency so the UI's loading states still show.
 const delay = (ms = 260) => new Promise((res) => setTimeout(res, ms))
@@ -312,11 +314,13 @@ export async function createRTI(body: ReadyToFileObject): Promise<RTICreateRespo
       registration_number: null,
       created_at: created,
       submitted_at: null,
+      response_due_at: null,
       otp_verified: false,
       applicant: null,
       documents: [],
       payments: [],
       status_events: [],
+      first_appeal: null,
     }
     state.rtis.unshift(rti)
     addStatusEvent(state, rti, 'READY_TO_FILE', { source: 'ready_to_file_contract' })
@@ -360,7 +364,7 @@ export async function mockRequest(path: string, options: MockRequestOptions = {}
 
   // Collection
   if (path === '/rtis' && method === 'GET') {
-    return withState((state) => state.rtis.map(serializeRtiListItem))
+    return withState((state) => state.rtis.map((r) => serializeRtiListItem(r, state.demo_now ?? null)))
   }
   if (path === '/rtis' && method === 'POST') {
     return createRTI(body as ReadyToFileObject)
@@ -374,15 +378,50 @@ export async function mockRequest(path: string, options: MockRequestOptions = {}
     return { rti_id: seedReadyToFileRti(), status: 'READY_TO_FILE' }
   }
 
-  const m = path.match(/^\/rtis\/(\d+)(\/[a-z/]+)?$/)
+  // ── Demo time travel (clearly labelled prototype controls) ─────────────────
+  if (path === '/demo/time' && method === 'GET') {
+    return withState((state) => ({ demo_now: state.demo_now ?? null }))
+  }
+  if (path === '/demo/time/advance' && method === 'POST') {
+    const days = Math.max(1, Math.min(365, Number(body.days ?? 7)))
+    return withState((state) => {
+      const base = state.demo_now ?? new Date().toISOString()
+      state.demo_now = addDays(base, days)
+      return { demo_now: state.demo_now }
+    })
+  }
+  if (path === '/demo/time/reset' && method === 'POST') {
+    return withState((state) => {
+      state.demo_now = null
+      return { demo_now: null }
+    })
+  }
+  // Shortcut: fast-forward to 1 day past the first AWAITING_RESPONSE deadline
+  if (path === '/demo/time/fastforward' && method === 'POST') {
+    return withState((state) => {
+      const candidate = state.rtis.find(
+        (r) => r.status === 'AWAITING_RESPONSE' && r.response_due_at,
+      )
+      if (candidate?.response_due_at) {
+        state.demo_now = addDays(candidate.response_due_at, 3)
+      } else {
+        const base = state.demo_now ?? new Date().toISOString()
+        state.demo_now = addDays(base, 31)
+      }
+      return { demo_now: state.demo_now }
+    })
+  }
+
+  const m = path.match(/^\/rtis\/(\d+)(\/[a-z/_]+)?$/)
   if (m) {
     const rtiId = Number(m[1])
     const sub = m[2] ?? ''
 
     return withState((state) => {
       const rti = findRti(state, rtiId)
+      const demoNow = state.demo_now ?? null
 
-      if (sub === '' && method === 'GET') return serializeRtiDetail(rti)
+      if (sub === '' && method === 'GET') return serializeRtiDetail(rti, demoNow)
 
       if (sub === '/applicant' && method === 'POST') {
         if (rti.status !== 'READY_TO_FILE') {
@@ -396,7 +435,7 @@ export async function mockRequest(path: string, options: MockRequestOptions = {}
         }
         transition(state, rti, 'FILING')
         transition(state, rti, 'PAYMENT_PENDING')
-        return serializeRtiDetail(rti)
+        return serializeRtiDetail(rti, demoNow)
       }
 
       if (sub === '/otp/send' && method === 'POST') {
@@ -434,7 +473,11 @@ export async function mockRequest(path: string, options: MockRequestOptions = {}
           throw new Error('Complete demo payment before submitting the RTI.')
         }
         rti.registration_number = registrationNumber(rti.id)
-        rti.submitted_at = new Date().toISOString()
+        // Use demo_now as submitted_at so time travel stays coherent
+        const submittedAt = getDemoNow(demoNow)
+        rti.submitted_at = submittedAt
+        // Response is due 30 days after submission (RTI Act Section 7(1))
+        rti.response_due_at = addDays(submittedAt, 30)
         transition(state, rti, 'SUBMITTED', { simulated: true })
         transition(state, rti, 'RECEIVED')
         transition(state, rti, 'FORWARDED')
@@ -442,10 +485,48 @@ export async function mockRequest(path: string, options: MockRequestOptions = {}
         return {
           registration_number: rti.registration_number,
           status: rti.status,
+          response_due_at: rti.response_due_at,
           simulated: true,
-          message:
-            'Prototype submission only. No real government system was contacted.',
+          message: 'Prototype submission only. No real government system was contacted.',
         }
+      }
+
+      // ── First Appeal endpoints ─────────────────────────────────────────────
+      if (sub === '/appeal/generate' && method === 'POST') {
+        if (!rti.response_due_at) {
+          throw new Error('RTI has not been submitted or has no deadline set.')
+        }
+        const now = getDemoNow(demoNow)
+        if (!calcIsOverdue(rti.response_due_at, now)) {
+          throw new Error('RTI is not yet overdue. Appeal can only be generated after the deadline.')
+        }
+        const overdueDays = calcDaysOverdue(rti.response_due_at, now)
+        const generatedText = generateAppealText({
+          authority_name: rti.authority_name,
+          original_query: rti.original_query,
+          final_request: rti.final_request,
+          registration_number: rti.registration_number,
+          submitted_at: rti.submitted_at,
+          response_due_at: rti.response_due_at,
+          applicant: rti.applicant,
+          days_overdue: overdueDays,
+          demo_now: demoNow,
+        })
+        const appeal: FirstAppeal = {
+          generated_at: now,
+          title: `First Appeal — ${rti.authority_name}`,
+          reason: `No response received within 30 days of filing (${overdueDays} day${overdueDays !== 1 ? 's' : ''} overdue).`,
+          generated_text: generatedText,
+        }
+        rti.first_appeal = appeal
+        return { first_appeal: appeal }
+      }
+
+      if (sub === '/appeal' && method === 'PATCH') {
+        // Persist edited appeal text
+        if (!rti.first_appeal) throw new Error('No appeal has been generated yet.')
+        rti.first_appeal = { ...rti.first_appeal, generated_text: String(body.generated_text ?? '') }
+        return { first_appeal: rti.first_appeal }
       }
 
       throw new Error(`Mock API: unhandled route ${method} ${path}`)

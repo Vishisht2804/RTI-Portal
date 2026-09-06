@@ -5,7 +5,19 @@
  * (`backend/app/services/lifecycle.py` + `rti_service.py`). The same mock RTI
  * object flows through Track A (intake) and Track B (filing) — nothing is
  * hardcoded per page.
+ *
+ * v1 → v1 (additive): response_due_at, first_appeal added to DemoRti;
+ *   demo_now added to DemoState. Existing stored data parses fine — missing
+ *   fields default to null/undefined which the code treats as null.
  */
+
+import {
+  addDays,
+  daysRemaining as calcDaysRemaining,
+  isOverdue as calcIsOverdue,
+  daysOverdue as calcDaysOverdue,
+  getDemoNow,
+} from '../../utils/deadline'
 
 const STORAGE_KEY = 'rti_demo_state_v1'
 
@@ -107,7 +119,22 @@ const NEXT_ACTIONS: Record<RtiStatus, NextAction> = {
   },
 }
 
-export function getNextAction(status: RtiStatus, rtiId: number): NextAction {
+export function getNextAction(
+  status: RtiStatus,
+  rtiId: number,
+  isOverdue = false,
+): NextAction {
+  // Override: overdue AWAITING_RESPONSE triggers First Appeal action
+  if (status === 'AWAITING_RESPONSE' && isOverdue) {
+    return {
+      title: 'Generate First Appeal',
+      description:
+        'No response received within 30 days. File a First Appeal under Section 19(1) of the RTI Act.',
+      action: 'generate_appeal',
+      action_url: `/filing/rtis/${rtiId}`,
+    }
+  }
+
   const action = NEXT_ACTIONS[status] ?? {
     title: 'Check back later',
     description: 'The prototype does not have a mapped next action for this state.',
@@ -123,6 +150,14 @@ export function registrationNumber(rtiId: number): string {
 }
 
 // ─── Persisted shapes (mirror backend `_serialize_rti`) ──────────────────────
+
+/** Generated First Appeal — stored per RTI so it survives refresh. */
+export interface FirstAppeal {
+  generated_at: string
+  title: string
+  reason: string
+  generated_text: string
+}
 
 export interface DemoStatusEvent {
   id: number
@@ -168,16 +203,25 @@ export interface DemoRti {
   registration_number: string | null
   created_at: string
   submitted_at: string | null
+  /** 30 days after submitted_at; set when RTI is submitted. */
+  response_due_at: string | null
   otp_verified: boolean
   applicant: DemoApplicant | null
   documents: DemoDocument[]
   payments: DemoPayment[]
   status_events: DemoStatusEvent[]
+  /** Generated First Appeal draft, persisted so edits survive refresh. */
+  first_appeal: FirstAppeal | null
 }
 
 export interface DemoState {
   seq: number
   rtis: DemoRti[]
+  /**
+   * Demo time travel: ISO timestamp representing "now" for deadline math.
+   * null = use real wall-clock time. Set via time-travel controls.
+   */
+  demo_now: string | null
 }
 
 // ─── Persistence ────────────────────────────────────────────────────────────
@@ -205,6 +249,7 @@ function seededRti(id: number): DemoRti {
     registration_number: null,
     created_at: created,
     submitted_at: null,
+    response_due_at: null,
     otp_verified: false,
     applicant: null,
     documents: [],
@@ -219,11 +264,12 @@ function seededRti(id: number): DemoRti {
         metadata: { source: 'ready_to_file_contract' },
       },
     ],
+    first_appeal: null,
   }
 }
 
 export function initialState(): DemoState {
-  return { seq: 2, rtis: [seededRti(1)] }
+  return { seq: 2, rtis: [seededRti(1)], demo_now: null }
 }
 
 /**
@@ -238,6 +284,7 @@ export function seedReadyToFileRti(): number {
     return id
   })
 }
+
 
 export function loadState(): DemoState {
   try {
@@ -318,10 +365,34 @@ export function findRti(state: DemoState, rtiId: number): DemoRti {
   return rti
 }
 
+// ─── Deadline helpers ────────────────────────────────────────────────────────
+
+function deadlineFields(rti: DemoRti, demoNow: string | null | undefined) {
+  const now = getDemoNow(demoNow)
+  if (!rti.response_due_at) {
+    return {
+      response_due_at: null,
+      is_overdue: false,
+      days_remaining: null,
+      days_overdue_count: 0,
+      demo_now: demoNow ?? null,
+    }
+  }
+  const due = rti.response_due_at
+  return {
+    response_due_at: due,
+    is_overdue: calcIsOverdue(due, now),
+    days_remaining: calcDaysRemaining(due, now),
+    days_overdue_count: calcDaysOverdue(due, now),
+    demo_now: demoNow ?? null,
+  }
+}
+
 // ─── Serializers (mirror backend `_serialize_rti` / `list_rtis`) ─────────────
 
-export function serializeRtiDetail(rti: DemoRti) {
+export function serializeRtiDetail(rti: DemoRti, demoNow?: string | null) {
   const latest = rti.status_events[rti.status_events.length - 1]
+  const dl = deadlineFields(rti, demoNow)
   return {
     id: rti.id,
     registration_number: rti.registration_number,
@@ -334,6 +405,11 @@ export function serializeRtiDetail(rti: DemoRti) {
     status: rti.status,
     created_at: rti.created_at,
     submitted_at: rti.submitted_at,
+    response_due_at: dl.response_due_at,
+    is_overdue: dl.is_overdue,
+    days_remaining: dl.days_remaining,
+    days_overdue_count: dl.days_overdue_count,
+    demo_now: dl.demo_now,
     applicant: rti.applicant
       ? {
           id: rti.applicant.id,
@@ -364,12 +440,14 @@ export function serializeRtiDetail(rti: DemoRti) {
       metadata: e.metadata ?? {},
     })),
     last_update: latest ? latest.timestamp : rti.created_at,
-    next_action: getNextAction(rti.status, rti.id),
+    next_action: getNextAction(rti.status, rti.id, dl.is_overdue),
+    first_appeal: rti.first_appeal ?? null,
   }
 }
 
-export function serializeRtiListItem(rti: DemoRti) {
+export function serializeRtiListItem(rti: DemoRti, demoNow?: string | null) {
   const latest = rti.status_events[rti.status_events.length - 1]
+  const dl = deadlineFields(rti, demoNow)
   return {
     id: rti.id,
     registration_number: rti.registration_number,
@@ -377,6 +455,11 @@ export function serializeRtiListItem(rti: DemoRti) {
     subject: rti.original_query.slice(0, 96),
     status: rti.status,
     last_update: latest ? latest.timestamp : rti.created_at,
-    next_action: getNextAction(rti.status, rti.id),
+    next_action: getNextAction(rti.status, rti.id, dl.is_overdue),
+    response_due_at: dl.response_due_at,
+    is_overdue: dl.is_overdue,
+    days_remaining: dl.days_remaining,
+    days_overdue_count: dl.days_overdue_count,
+    has_appeal: Boolean(rti.first_appeal),
   }
 }
