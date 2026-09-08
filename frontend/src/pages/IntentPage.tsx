@@ -53,8 +53,8 @@ const AT_SCALE: [string, string][] = [
 
 export default function IntentPage() {
   const navigate = useNavigate()
-  const { state, setQuery, setIntent } = useWizard()
-  const [text, setText] = useState(state.originalQuery)
+  const { setQuery, setIntent } = useWizard()
+  const [text, setText] = useState('')
   const [error, setError] = useState('')
 
   const mutation = useMutation({
