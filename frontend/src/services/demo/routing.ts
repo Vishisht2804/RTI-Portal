@@ -62,6 +62,12 @@ export const MOCK_AUTHORITIES: MockAuthority[] = [
 
 const byId = (id: number) => MOCK_AUTHORITIES.find((a) => a.authority_id === id)!
 
+export const HINDI_STREETLIGHT_QUERY = 'मेरे इलाके में पिछले तीन महीने से स्ट्रीट लाइटें खराब हैं। कई बार शिकायत करने के बाद भी नगर निगम ने उन्हें ठीक नहीं किया है। मैं इस समस्या का समाधान कैसे करवा सकता हूँ?'
+export const MEDICAL_DEVICE_QUERY = 'What approvals, procurement expenditure, and regulatory clearances were involved in the procurement of medical devices for Central Government hospitals in 2025?'
+
+export const isHindiStreetlightDemo = (raw: string) => raw.trim() === HINDI_STREETLIGHT_QUERY
+export const isMedicalDeviceDemo = (raw: string) => raw.trim() === MEDICAL_DEVICE_QUERY
+
 // ─── Demo scenario pinning ────────────────────────────────────────────────────
 
 interface DemoScenario {
@@ -99,9 +105,16 @@ const DEMO_SCENARIOS: DemoScenario[] = [
     jurisdiction: 'state', category: 'health',
     primaryId: 31, altIds: [],
   },
+  {
+    key: 'streetlights_hindi',
+    tokens: [],
+    jurisdiction: 'state', category: 'infrastructure',
+    primaryId: 32, altIds: [],
+  },
 ]
 
 export function matchDemoScenario(raw: string): DemoScenario | null {
+  if (isHindiStreetlightDemo(raw)) return DEMO_SCENARIOS.find((sc) => sc.key === 'streetlights_hindi') ?? null
   const t = norm(raw)
   for (const sc of DEMO_SCENARIOS) {
     if (sc.tokens.every((tok) => t.includes(tok.toLowerCase()))) {
@@ -183,9 +196,22 @@ const DEMO_AUTHORITY_FIXTURES: DemoAuthorityFixture[] = [
       ),
     ],
   },
+  {
+    query: HINDI_STREETLIGHT_QUERY,
+    routingExplanation: 'यह अनुरोध नगर निगम से जुड़ी शिकायत के रिकॉर्ड और कार्रवाई से संबंधित है।',
+    primary: fixtureAuthority(
+      32,
+      92,
+      'high',
+      'नगर निगम क्षेत्र की सड़कों और स्ट्रीट लाइट जैसी नागरिक सुविधाओं की देखरेख करता है।',
+      'यह अनुरोध नगर निगम के अधिकार क्षेत्र में आने वाली स्ट्रीट लाइट की समस्या से संबंधित है।',
+    ),
+    alternatives: [],
+  },
 ]
 
 const fixtureForQuery = (raw: string) => {
+  if (isHindiStreetlightDemo(raw)) return DEMO_AUTHORITY_FIXTURES.find((fixture) => fixture.query === HINDI_STREETLIGHT_QUERY) ?? null
   const normalized = norm(raw).trim()
   return DEMO_AUTHORITY_FIXTURES.find((fixture) => norm(fixture.query).trim() === normalized) ?? null
 }

@@ -597,6 +597,8 @@ function Dashboard() {
 
   async function reset() {
     setResetting(true);
+    setRtis([]);
+    setDemoNow(null);
     try {
       await api("/demo/reset", { method: "POST" });
       await loadAll();

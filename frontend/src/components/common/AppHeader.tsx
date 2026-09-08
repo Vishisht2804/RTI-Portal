@@ -49,7 +49,7 @@ export function AppHeader() {
           <div className="flex items-center gap-3 shrink-0 ml-auto md:ml-0">
             <ThemeToggle />
             <span className="hidden sm:inline text-[11px] font-bold tracking-[0.12em] text-primary-700">DEMO</span>
-            <span className="hidden lg:inline text-sm text-slate-700">Triambak</span>
+            <span className="hidden lg:inline text-sm text-slate-700">Demo User</span>
           </div>
         </div>
 

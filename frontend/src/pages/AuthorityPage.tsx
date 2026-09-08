@@ -10,13 +10,15 @@ import { ErrorMessage } from '../components/common/ErrorMessage'
 import { useWizard } from '../context/WizardContext'
 import { recommendAuthority } from '../services/api'
 import type { AuthorityResult, AmbiguityOption } from '../types/rti'
+import { isHindiStreetlightDemo } from '../services/demo/routing'
 
 const scoreOf = (a: AuthorityResult) =>
   Number.isFinite(a.confidence_score)
     ? a.confidence_score
     : a.confidence === 'high' ? 85 : a.confidence === 'medium' ? 60 : 40
 
-const levelLabel = (a: AuthorityResult) => {
+const levelLabel = (a: AuthorityResult, hindi = false) => {
+  if (hindi) return a.confidence === 'high' ? 'उच्च भरोसा' : a.confidence === 'medium' ? 'मध्यम भरोसा' : 'कम भरोसा'
   return a.confidence === 'high'
     ? 'High confidence'
     : a.confidence === 'medium' ? 'Medium confidence' : 'Low confidence'
@@ -31,9 +33,9 @@ function ConfidenceBar({ score }: { score: number }) {
   )
 }
 
-const Crumbs = () => (
+const Crumbs = ({ hindi }: { hindi: boolean }) => (
   <Breadcrumb items={[
-    { label: 'Home', to: '/' }, { label: 'Start a request', to: '/' }, { label: 'Authority' },
+    { label: hindi ? 'होम' : 'Home', to: '/' }, { label: hindi ? 'अनुरोध शुरू करें' : 'Start a request', to: '/' }, { label: hindi ? 'प्राधिकरण' : 'Authority' },
   ]} />
 )
 
@@ -41,6 +43,7 @@ export default function AuthorityPage() {
   const navigate = useNavigate()
   const { state, setAuthority, setAmbiguityChoice } = useWizard()
   const intent = state.intentResult
+  const isHindiDemo = isHindiStreetlightDemo(intent?.original_query ?? '')
   const [selectedId, setSelectedId] = useState<number | null>(
     state.selectedAuthority?.authority_id ?? null,
   )
@@ -124,7 +127,7 @@ export default function AuthorityPage() {
       <ProgressSteps />
 
       <div className="page animate-slide-up">
-        <Crumbs />
+        <Crumbs hindi={isHindiDemo} />
 
         {mutation.isPending && (
           <>
@@ -148,9 +151,9 @@ export default function AuthorityPage() {
         {/* ── Ambiguity ─────────────────────────────────────────────────── */}
         {authorityData && !mutation.isPending && showClarify && ambiguity && (
           <>
-            <h1 className="page-title">Which authority should receive this RTI?</h1>
+            <h1 className="page-title">{isHindiDemo ? 'यह RTI किस प्राधिकरण को भेजी जानी चाहिए?' : 'Which authority should receive this RTI?'}</h1>
             <p className="page-subtitle max-w-2xl">
-              More than one authority appears plausible. We will not hide that uncertainty.
+              {isHindiDemo ? 'एक से अधिक प्राधिकरण संभव लग सकते हैं। हम इस अनिश्चितता को छिपाएंगे नहीं।' : 'More than one authority appears plausible. We will not hide that uncertainty.'}
             </p>
 
             <div className="panel p-6 mt-8">
@@ -188,18 +191,18 @@ export default function AuthorityPage() {
         {/* ── Recommendation ────────────────────────────────────────────── */}
         {authorityData && primary && !mutation.isPending && !showClarify && (
           <>
-            <h1 className="page-title">We found the most likely record-holder.</h1>
+            <h1 className="page-title">{isHindiDemo ? 'हमें सबसे संभावित रिकॉर्ड-धारक मिल गया है।' : 'We found the most likely record-holder.'}</h1>
             <p className="page-subtitle max-w-2xl">
-              Your request is most likely handled by this public authority.
-              {state.ambiguityChoiceId && ' Updated from your answer.'}
+              {isHindiDemo ? 'आपका अनुरोध संभवतः इसी सार्वजनिक प्राधिकरण के पास है।' : 'Your request is most likely handled by this public authority.'}
+              {state.ambiguityChoiceId && (isHindiDemo ? ' आपके उत्तर के आधार पर अपडेट किया गया है।' : ' Updated from your answer.')}
             </p>
 
             <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px] items-start mt-8">
               <div>
                 <div className="panel p-6">
-                  <p className="eyebrow">{scoreOf(primary)}% match · {levelLabel(primary)}</p>
+                  <p className="eyebrow">{scoreOf(primary)}% {isHindiDemo ? 'मेल · ' : 'match · '}{levelLabel(primary, isHindiDemo)}</p>
                   <h2 className="text-[22px] font-bold text-slate-900 mt-2 leading-snug">{primary.name}</h2>
-                  <p className="text-sm text-slate-500 mt-0.5">Recommended public authority</p>
+                  <p className="text-sm text-slate-500 mt-0.5">{isHindiDemo ? 'अनुशंसित सार्वजनिक प्राधिकरण' : 'Recommended public authority'}</p>
                   <div className="mt-3"><ConfidenceBar score={scoreOf(primary)} /></div>
 
                   {primary.description && (
@@ -217,32 +220,32 @@ export default function AuthorityPage() {
 
                   {primary.matched_signals?.length > 0 && (
                     <p className="text-[13px] text-slate-500 mt-4">
-                      <span className="font-medium text-slate-600">Matched signals: </span>
+                      <span className="font-medium text-slate-600">{isHindiDemo ? 'मेल खाने वाले संकेत: ' : 'Matched signals: '}</span>
                       {primary.matched_signals.map((s) => s.toUpperCase()).join(' · ')}
                     </p>
                   )}
                 </div>
 
                 <button onClick={handleContinue} disabled={!selectedId} className="btn-primary w-full mt-4">
-                  Use this authority
+                  {isHindiDemo ? 'इस प्राधिकरण का उपयोग करें' : 'Use this authority'}
                 </button>
                 <button
                   onClick={() => navigate('/suitability')}
                   className="block w-full text-center text-sm font-medium text-slate-500 hover:text-slate-800 mt-3"
                 >
-                  ← Back to suitability
+                  ← {isHindiDemo ? 'उपयुक्तता पर वापस जाएं' : 'Back to suitability'}
                 </button>
               </div>
 
               <aside>
                 <div className="panel p-6">
-                  <h3 className="section-title">Why this authority?</h3>
+                  <h3 className="section-title">{isHindiDemo ? 'यह प्राधिकरण क्यों?' : 'Why this authority?'}</h3>
                   <p className="text-sm text-slate-600 mt-2 leading-relaxed">
-                    {authorityData.routing_explanation ?? 'The routing decision combines jurisdiction, topic signals, and the type of record requested. It is deterministic and explainable.'}
+                    {isHindiDemo ? 'यह चयन अधिकार क्षेत्र, विषय संकेतों और मांगे गए रिकॉर्ड के प्रकार पर आधारित है। यह निर्णय निश्चित और समझाने योग्य है।' : authorityData.routing_explanation ?? 'The routing decision combines jurisdiction, topic signals, and the type of record requested. It is deterministic and explainable.'}
                   </p>
                   {primary.matched_signals?.length > 0 && (
                     <div className="divider mt-4 pt-4">
-                      <p className="section-label mb-1.5">Matched signals</p>
+                      <p className="section-label mb-1.5">{isHindiDemo ? 'मेल खाने वाले संकेत' : 'Matched signals'}</p>
                       <p className="text-[13px] text-slate-600 leading-relaxed">
                         {primary.matched_signals.map((s) => s.toUpperCase()).join(' · ')}
                       </p>
@@ -251,11 +254,11 @@ export default function AuthorityPage() {
                 </div>
 
                 <div className="mt-6">
-                    <h3 className="section-title">Other possible authorities</h3>
+                    <h3 className="section-title">{isHindiDemo ? 'अन्य संभावित प्राधिकरण' : 'Other possible authorities'}</h3>
                     {plausibleAlts.length > 0 ? (
                       <>
                         <p className="text-[13px] text-slate-500 mt-1 leading-relaxed">
-                          These authorities may also hold relevant records. Same-category options are listed first.
+                          {isHindiDemo ? 'इन प्राधिकरणों के पास भी संबंधित रिकॉर्ड हो सकते हैं। पहले इसी श्रेणी के विकल्प दिखाए गए हैं।' : 'These authorities may also hold relevant records. Same-category options are listed first.'}
                         </p>
                         <div className="grid gap-2 mt-3">
                           {plausibleAlts.map((alt) => (
@@ -281,7 +284,7 @@ export default function AuthorityPage() {
                             onClick={() => handleSelect(alt)}
                             className="shrink-0 text-xs font-medium text-primary-700 border border-primary-300 hover:bg-primary-50 rounded-md px-3 py-1.5 transition-colors whitespace-nowrap"
                           >
-                            Use this instead
+                            {isHindiDemo ? 'इसके बजाय इसे चुनें' : 'Use this instead'}
                           </button>
                         </div>
                           ))}
@@ -289,7 +292,7 @@ export default function AuthorityPage() {
                       </>
                     ) : (
                       <p className="text-[13px] text-slate-500 mt-1 leading-relaxed">
-                        No closely matching alternative authority was identified.
+                        {isHindiDemo ? 'कोई निकटता से मेल खाने वाला वैकल्पिक प्राधिकरण नहीं मिला।' : 'No closely matching alternative authority was identified.'}
                       </p>
                     )}
                   </div>

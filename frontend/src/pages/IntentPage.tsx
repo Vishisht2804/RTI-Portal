@@ -8,6 +8,7 @@ import { AppFooter } from '../components/common/AppFooter'
 import { Spinner } from '../components/common/Spinner'
 import { analyzeIntent } from '../services/api'
 import { DEMO_MODE } from '../services/demo/config'
+import { HINDI_STREETLIGHT_QUERY, MEDICAL_DEVICE_QUERY } from '../services/demo/routing'
 import { useWizard } from '../context/WizardContext'
 
 const EXAMPLES: { label: string; query: string }[] = [
@@ -17,7 +18,7 @@ const EXAMPLES: { label: string; query: string }[] = [
   },
   {
     label: 'Medical device procurement',
-    query: 'What approvals, procurement expenditure, and regulatory clearances were involved in the procurement of medical devices for Central Government hospitals in 2025?',
+    query: MEDICAL_DEVICE_QUERY,
   },
   {
     label: 'Karnataka hospital spending',
@@ -25,7 +26,7 @@ const EXAMPLES: { label: string; query: string }[] = [
   },
   {
     label: 'Broken streetlights',
-    query: "Why haven't the streetlights in my area been repaired by the municipal corporation for the past three months?",
+    query: HINDI_STREETLIGHT_QUERY,
   },
 ]
 
@@ -60,7 +61,7 @@ export default function IntentPage() {
   const mutation = useMutation({
     mutationFn: analyzeIntent,
     onSuccess: (data) => {
-      setQuery(text.trim())
+      setQuery(data.original_query)
       setIntent(data)
       navigate('/suitability')
     },

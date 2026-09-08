@@ -12,6 +12,7 @@ import { Spinner } from '../components/common/Spinner'
 import { ErrorMessage } from '../components/common/ErrorMessage'
 import { useWizard } from '../context/WizardContext'
 import { generateDraft } from '../services/api'
+import { isHindiStreetlightDemo } from '../services/demo/routing'
 
 const CHAR_LIMIT = 3000
 
@@ -20,6 +21,7 @@ export default function DraftPage() {
   const { state, setDraft, setEditedText } = useWizard()
   const intent    = state.intentResult
   const authority = state.selectedAuthority
+  const isHindiDemo = isHindiStreetlightDemo(intent?.original_query ?? '')
   const [apiError, setApiError] = useState('')
   const [copied, setCopied]     = useState(false)
 
@@ -82,12 +84,11 @@ export default function DraftPage() {
 
       <div className="page animate-slide-up">
         <Breadcrumb items={[
-          { label: 'Home', to: '/' }, { label: 'Authority', to: '/authority' }, { label: 'Draft' },
+          { label: isHindiDemo ? 'होम' : 'Home', to: '/' }, { label: isHindiDemo ? 'प्राधिकरण' : 'Authority', to: '/authority' }, { label: isHindiDemo ? 'मसौदा' : 'Draft' },
         ]} />
-        <h1 className="page-title">Prepare your RTI request.</h1>
+        <h1 className="page-title">{isHindiDemo ? 'अपनी RTI का अनुरोध तैयार करें।' : 'Prepare your RTI request.'}</h1>
         <p className="page-subtitle max-w-2xl mb-8">
-          We turned your question into a clear request. Review the wording before moving to filing.
-          It will be addressed to <span className="font-medium text-slate-700">{authority?.name}</span>.
+          {isHindiDemo ? 'हमने आपके प्रश्न को एक स्पष्ट अनुरोध में बदल दिया है। दाखिल करने से पहले भाषा की समीक्षा करें। यह अनुरोध ' : 'We turned your question into a clear request. Review the wording before moving to filing. It will be addressed to '}<span className="font-medium text-slate-700">{authority?.name}</span>{isHindiDemo ? ' को भेजा जाएगा।' : '.'}
         </p>
 
         {mutation.isPending && !state.draftResult && (
@@ -106,17 +107,17 @@ export default function DraftPage() {
             <div>
               <div className="panel overflow-hidden focus-within:border-primary-400 focus-within:ring-2 focus-within:ring-primary-100 transition-colors">
                 <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-slate-200 bg-slate-50">
-                  <span className="eyebrow">RTI application draft</span>
+                  <span className="eyebrow">{isHindiDemo ? 'RTI आवेदन का मसौदा' : 'RTI application draft'}</span>
                   <div className="flex items-center gap-3">
                     <button onClick={handleCopy} className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-900">
-                      {copied ? <><CheckIcon size={12} className="text-emerald-600" /> Copied</> : <><CopyIcon size={12} /> Copy</>}
+                      {copied ? <><CheckIcon size={12} className="text-emerald-600" /> {isHindiDemo ? 'कॉपी हो गया' : 'Copied'}</> : <><CopyIcon size={12} /> {isHindiDemo ? 'कॉपी करें' : 'Copy'}</>}
                     </button>
                     <button onClick={handleDownload} className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-900">
-                      <DownloadIcon size={12} /> Download
+                      <DownloadIcon size={12} /> {isHindiDemo ? 'डाउनलोड करें' : 'Download'}
                     </button>
                     <button onClick={doGenerate} disabled={mutation.isPending}
                       className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-900 disabled:opacity-50">
-                      <RefreshCcwIcon size={12} /> Regenerate
+                      <RefreshCcwIcon size={12} /> {isHindiDemo ? 'फिर बनाएं' : 'Regenerate'}
                     </button>
                   </div>
                 </div>
@@ -134,7 +135,7 @@ export default function DraftPage() {
                 </span>
                 {overLimit && (
                   <span className="text-xs text-red-600 flex items-center gap-1.5">
-                    <AlertCircleIcon size={13} /> Over the limit — shorten before continuing.
+                    <AlertCircleIcon size={13} /> {isHindiDemo ? 'सीमा से अधिक है — आगे बढ़ने से पहले छोटा करें।' : 'Over the limit — shorten before continuing.'}
                   </span>
                 )}
               </div>
@@ -144,27 +145,24 @@ export default function DraftPage() {
                 disabled={!state.draftResult || overLimit || mutation.isPending}
                 className="btn-primary w-full mt-6"
               >
-                Continue to review
+                {isHindiDemo ? 'समीक्षा के लिए आगे बढ़ें' : 'Continue to review'}
               </button>
               <button
                 onClick={() => navigate('/authority')}
                 className="block w-full text-center text-sm font-medium text-slate-500 hover:text-slate-800 mt-3"
               >
-                ← Change authority
+                ← {isHindiDemo ? 'प्राधिकरण बदलें' : 'Change authority'}
               </button>
-              <p className="text-[13px] text-slate-400 mt-3 text-center">You can edit the draft before filing.</p>
+              <p className="text-[13px] text-slate-400 mt-3 text-center">{isHindiDemo ? 'दाखिल करने से पहले आप मसौदे को संपादित कर सकते हैं।' : 'You can edit the draft before filing.'}</p>
             </div>
 
             {/* Context aside */}
             <aside className="lg:sticky lg:top-24">
               <div className="panel p-5">
-                <h3 className="section-title">Quality checks</h3>
+                <h3 className="section-title">{isHindiDemo ? 'गुणवत्ता जांच' : 'Quality checks'}</h3>
                 <ul className="mt-3 space-y-1.5">
                   {[
-                    'Clear record requested',
-                    'Specific period included',
-                    'Correct authority selected',
-                    'Avoids asking for opinion or explanation',
+                    ...(isHindiDemo ? ['स्पष्ट रिकॉर्ड मांगा गया है', 'विशिष्ट अवधि शामिल है', 'सही प्राधिकरण चुना गया है', 'राय या स्पष्टीकरण नहीं मांगा गया है'] : ['Clear record requested', 'Specific period included', 'Correct authority selected', 'Avoids asking for opinion or explanation']),
                   ].map((c) => (
                     <li key={c} className="flex items-start gap-2 text-sm text-slate-600">
                       <CheckIcon size={14} className="text-emerald-600 shrink-0 mt-0.5" /> {c}
@@ -172,13 +170,13 @@ export default function DraftPage() {
                   ))}
                 </ul>
                 <p className="text-[13px] text-slate-400 mt-3 divider pt-3">
-                  The full validation runs on the next step.
+                  {isHindiDemo ? 'अगले चरण में पूरी जांच की जाएगी।' : 'The full validation runs on the next step.'}
                 </p>
               </div>
 
               {state.draftResult.explanation && (
                 <div className="panel p-5 mt-4">
-                  <p className="section-label mb-1.5">About this draft</p>
+                  <p className="section-label mb-1.5">{isHindiDemo ? 'इस मसौदे के बारे में' : 'About this draft'}</p>
                   <p className="text-sm text-slate-600 leading-relaxed">{state.draftResult.explanation}</p>
                 </div>
               )}

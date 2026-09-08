@@ -60,11 +60,63 @@ const DRAFT_EXPLANATION =
   "CPIO to locate and provide the exact records you need. Asking for 'certified copies' is " +
   'the correct RTI phrasing.'
 
-import { analyzeQuery, scoreAuthorities, detectAmbiguity, getDemoRoutingExplanation } from './demo/routing'
+import { analyzeQuery, scoreAuthorities, detectAmbiguity, getDemoRoutingExplanation, isHindiStreetlightDemo, isMedicalDeviceDemo } from './demo/routing'
+
+const HINDI_STREETLIGHT_DRAFT = (authorityName: string) =>
+  `सेवा में,\nकेंद्रीय/राज्य लोक सूचना अधिकारी,\n${authorityName}\n\n` +
+  'विषय: सूचना का अधिकार अधिनियम, 2005 के अंतर्गत आवेदन\n\n' +
+  'कृपया पिछले तीन महीनों में मेरे इलाके की स्ट्रीट लाइटों से संबंधित निम्नलिखित जानकारी उपलब्ध कराएं:\n\n' +
+  '1. स्ट्रीट लाइटों के खराब होने और उनसे संबंधित प्राप्त शिकायतों का विवरण।\n' +
+  '2. शिकायतों पर की गई कार्रवाई, जारी किए गए कार्य आदेश और निरीक्षण रिपोर्ट की प्रमाणित प्रतियां।\n' +
+  '3. मरम्मत में हुई देरी के कारण और वर्तमान स्थिति।\n' +
+  '4. इस कार्य के लिए जिम्मेदार अधिकारी या विभाग का विवरण।\n\n' +
+  'कृपया मांगी गई जानकारी प्रमाणित प्रतियों के रूप में उपलब्ध कराएं।\n\nसादर,\n[आवेदक का नाम]'
 
 export async function analyzeIntent(req: IntentRequest): Promise<IntentResponse> {
   await delay()
   const s = analyzeQuery(req.text)
+
+  if (isHindiStreetlightDemo(req.text)) {
+    return {
+      is_rti: false,
+      category: 'infrastructure',
+      jurisdiction_hint: 'state',
+      summary: 'यह RTI नहीं, बल्कि शिकायत का मामला लगता है।',
+      entities: ['नगर निगम', 'स्ट्रीट लाइटें'],
+      time_period: 'पिछले तीन महीने',
+      missing_information: [],
+      original_query: req.text,
+      jurisdiction: 'state',
+      is_rti_suitable: false,
+      suitability_explanation: 'आपकी समस्या किसी सरकारी रिकॉर्ड या सूचना को प्राप्त करने के बजाय किसी सार्वजनिक समस्या का समाधान करवाने से जुड़ी है। इसलिए इसके लिए RTI दाखिल करने के बजाय शिकायत दर्ज करना अधिक उपयुक्त है।',
+      reformulation_suggestion: 'आप इस समस्या से जुड़े रिकॉर्ड, शिकायतों और की गई कार्रवाई की जानकारी RTI के माध्यम से मांग सकते हैं।',
+      used_fallback: false,
+      grievance: {
+        detected: true,
+        fix_route_explanation: 'इस तरह की शिकायत के लिए संबंधित सरकारी शिकायत पोर्टल का उपयोग करें।',
+        rti_reframe: 'फिर भी आप इस समस्या से जुड़े सरकारी रिकॉर्ड और की गई कार्रवाई के बारे में RTI के माध्यम से जानकारी मांग सकते हैं।',
+      },
+    }
+  }
+
+  if (isMedicalDeviceDemo(req.text)) {
+    return {
+      is_rti: true,
+      category: 'health',
+      jurisdiction_hint: 'central',
+      summary: 'Seeking information about approvals, expenditure, and regulatory clearances for medical devices used by Central Government hospitals.',
+      entities: ['medical devices', 'Central Government hospitals'],
+      time_period: '2025',
+      missing_information: [],
+      original_query: req.text,
+      jurisdiction: 'central',
+      is_rti_suitable: true,
+      suitability_explanation: 'This asks for records held by Central Government public authorities and is well-suited to an RTI application.',
+      reformulation_suggestion: null,
+      used_fallback: false,
+      grievance: null,
+    }
+  }
 
   const jurisdiction = s.jurisdiction
   const categoryWord = s.category === 'other' ? 'the requested subject' : s.category.replace('_', ' ')
@@ -166,6 +218,17 @@ export async function generateDraft(
   req: DraftGenerateRequest,
 ): Promise<DraftGenerateResponse> {
   await delay(400)
+  if (isHindiStreetlightDemo(req.original_query)) {
+    const draft_text = HINDI_STREETLIGHT_DRAFT(req.authority_name)
+    return {
+      draft_id: 9002,
+      draft_text,
+      explanation: 'यह मसौदा पिछले तीन महीनों की स्ट्रीट लाइट शिकायतों, उन पर की गई कार्रवाई और वर्तमान स्थिति से जुड़े रिकॉर्ड मांगता है।',
+      missing_information: [],
+      char_count: draft_text.length,
+      used_fallback: true,
+    }
+  }
   const draft_text = HEALTH_DRAFT(req.authority_name)
   return {
     draft_id: 9001,
