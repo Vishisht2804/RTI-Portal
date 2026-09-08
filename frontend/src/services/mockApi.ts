@@ -60,7 +60,7 @@ const DRAFT_EXPLANATION =
   "CPIO to locate and provide the exact records you need. Asking for 'certified copies' is " +
   'the correct RTI phrasing.'
 
-import { analyzeQuery, scoreAuthorities, detectAmbiguity } from './demo/routing'
+import { analyzeQuery, scoreAuthorities, detectAmbiguity, getDemoRoutingExplanation } from './demo/routing'
 
 export async function analyzeIntent(req: IntentRequest): Promise<IntentResponse> {
   await delay()
@@ -146,9 +146,20 @@ export async function recommendAuthority(
   }
 
   const primary = scored[0]
-  const alternatives = scored.slice(1)
+  const category = primary.category
+  const inScope = scored.slice(1)
+  // Same-category authorities come first in alternatives so the UI surface is most relevant.
+  const alternatives = [
+    ...inScope.filter((a) => a.authority_id !== primary.authority_id && a.category === category),
+    ...inScope.filter((a) => a.authority_id !== primary.authority_id && a.category !== category),
+  ].slice(0, 2)
 
-  return { primary, alternatives, ambiguity }
+  return {
+    primary,
+    alternatives,
+    routing_explanation: getDemoRoutingExplanation(req.original_query || '') ?? undefined,
+    ambiguity,
+  }
 }
 
 export async function generateDraft(
@@ -503,8 +514,7 @@ export async function mockRequest(path: string, options: MockRequestOptions = {}
           throw new Error('Generate the First Appeal before submitting it.')
         }
         if (rti.first_appeal.submitted_at) {
-          // Idempotent — already submitted.
-          return { first_appeal: rti.first_appeal, simulated: true }
+          throw new Error('This First Appeal has already been submitted.')
         }
         rti.first_appeal = {
           ...rti.first_appeal,

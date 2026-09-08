@@ -17,8 +17,9 @@ const scoreOf = (a: AuthorityResult) =>
     : a.confidence === 'high' ? 85 : a.confidence === 'medium' ? 60 : 40
 
 const levelLabel = (a: AuthorityResult) => {
-  const s = scoreOf(a)
-  return s >= 75 ? 'High confidence' : s >= 50 ? 'Medium confidence' : 'Low confidence'
+  return a.confidence === 'high'
+    ? 'High confidence'
+    : a.confidence === 'medium' ? 'Medium confidence' : 'Low confidence'
 }
 
 function ConfidenceBar({ score }: { score: number }) {
@@ -79,8 +80,18 @@ export default function AuthorityPage() {
   )
 
   const handleSelect = (auth: AuthorityResult) => {
+    if (!authorityData) return
+    const rest = allAuthorities.filter((a) => a.authority_id !== auth.authority_id)
+    const updatedData = {
+      ...authorityData,
+      primary: auth,
+      alternatives: rest,
+      ambiguity: authorityData.ambiguity
+        ? { ...authorityData.ambiguity, detected: false }
+        : authorityData.ambiguity,
+    }
     setSelectedId(auth.authority_id)
-    if (authorityData) setAuthority(authorityData, auth)
+    setAuthority(updatedData, auth)
   }
 
   const handleClarify = (opt: AmbiguityOption) => {
@@ -196,7 +207,7 @@ export default function AuthorityPage() {
                   )}
 
                   <ul className="mt-4 space-y-2">
-                    {(primary.reasoning?.length ? primary.reasoning : [primary.reason].filter(Boolean)).map((r, i) => (
+                    {[primary.reason].map((r, i) => (
                       <li key={i} className="flex items-start gap-2 text-[15px] text-slate-700">
                         <CheckIcon size={15} className="text-emerald-600 shrink-0 mt-1" />
                         <span className="leading-relaxed">{r}</span>
@@ -227,8 +238,7 @@ export default function AuthorityPage() {
                 <div className="panel p-6">
                   <h3 className="section-title">Why this authority?</h3>
                   <p className="text-sm text-slate-600 mt-2 leading-relaxed">
-                    The routing decision combines jurisdiction, topic signals, and the type of record
-                    requested. It is deterministic and explainable.
+                    {authorityData.routing_explanation ?? 'The routing decision combines jurisdiction, topic signals, and the type of record requested. It is deterministic and explainable.'}
                   </p>
                   {primary.matched_signals?.length > 0 && (
                     <div className="divider mt-4 pt-4">
@@ -240,27 +250,49 @@ export default function AuthorityPage() {
                   )}
                 </div>
 
-                {plausibleAlts.length > 0 && (
-                  <div className="mt-6">
+                <div className="mt-6">
                     <h3 className="section-title">Other possible authorities</h3>
-                    <div className="grid gap-2 mt-3">
-                      {plausibleAlts.map((alt) => (
-                        <button
+                    {plausibleAlts.length > 0 ? (
+                      <>
+                        <p className="text-[13px] text-slate-500 mt-1 leading-relaxed">
+                          These authorities may also hold relevant records. Same-category options are listed first.
+                        </p>
+                        <div className="grid gap-2 mt-3">
+                          {plausibleAlts.map((alt) => (
+                        <div
                           key={alt.authority_id}
-                          onClick={() => handleSelect(alt)}
-                          className={`panel p-4 text-left transition-colors ${
-                            selectedId === alt.authority_id ? 'border-primary-500' : 'hover:border-slate-300'
+                          className={`panel p-4 flex items-start gap-3 transition-colors ${
+                            selectedId === alt.authority_id ? 'border-primary-500' : ''
                           }`}
                         >
-                          <p className="text-sm font-semibold text-slate-900">{alt.name}</p>
-                          <p className="text-[13px] text-slate-500 mt-0.5">
-                            {scoreOf(alt)}% match · lower-confidence alternative
-                          </p>
-                        </button>
-                      ))}
-                    </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-slate-900">{alt.name}</p>
+                            <p className="text-[13px] text-slate-500 mt-0.5">
+                              {scoreOf(alt)}% match · {levelLabel(alt)}
+                            </p>
+                            {alt.description && (
+                              <p className="text-[13px] text-slate-500 mt-1 leading-relaxed line-clamp-2">
+                                {alt.description}
+                              </p>
+                            )}
+                            <p className="text-[13px] text-slate-600 mt-2 leading-relaxed">{alt.reason}</p>
+                          </div>
+                          <button
+                            onClick={() => handleSelect(alt)}
+                            className="shrink-0 text-xs font-medium text-primary-700 border border-primary-300 hover:bg-primary-50 rounded-md px-3 py-1.5 transition-colors whitespace-nowrap"
+                          >
+                            Use this instead
+                          </button>
+                        </div>
+                          ))}
+                        </div>
+                      </>
+                    ) : (
+                      <p className="text-[13px] text-slate-500 mt-1 leading-relaxed">
+                        No closely matching alternative authority was identified.
+                      </p>
+                    )}
                   </div>
-                )}
               </aside>
             </div>
           </>
