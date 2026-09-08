@@ -7,6 +7,7 @@ import { AppHeader } from '../components/common/AppHeader'
 import { AppFooter } from '../components/common/AppFooter'
 import { Spinner } from '../components/common/Spinner'
 import { analyzeIntent } from '../services/api'
+import { DEMO_MODE } from '../services/demo/config'
 import { useWizard } from '../context/WizardContext'
 
 const EXAMPLES: { label: string; query: string }[] = [
@@ -73,6 +74,10 @@ export default function IntentPage() {
       setError('Please describe what information you need (at least 10 characters).')
       return
     }
+    if (DEMO_MODE && !EXAMPLES.some((example) => example.query === trimmed)) {
+      setError('Live analysis is temporarily unavailable. Please try one of the guided examples.')
+      return
+    }
     mutation.mutate({ text: trimmed })
   }
 
@@ -98,7 +103,7 @@ export default function IntentPage() {
               and tracks the response.
             </p>
             <div className="mt-8">
-              <HomeFlowAnimation query={text} />
+              <HomeFlowAnimation />
             </div>
           </div>
 
