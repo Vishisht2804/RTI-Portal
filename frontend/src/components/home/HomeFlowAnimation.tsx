@@ -12,19 +12,20 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { ArrowLeft, ArrowRight } from 'lucide-react'
 
 type StageId = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7
 
 // Each stage duration in ms. Every sub-reveal must complete with ~400ms to spare.
 const STAGE_DURATIONS: Record<StageId, number> = {
-  0: 2800,  // 14 ticks — query + signal tags
-  1: 2800,  // 14 ticks — 4 signals stagger + confirmation
-  2: 3000,  // 15 ticks — verdict + supporting note
-  3: 3200,  // 16 ticks — primary authority + bar fill + alternatives
-  4: 3000,  // 15 ticks — 4 quality checks sequentially
-  5: 3000,  // 15 ticks — 5 filing steps progress
-  6: 3200,  // 16 ticks — deadline arc + 3 tracking checks
-  7: 3200,  // 16 ticks — branch cards + full appeal sequence
+  0: 3800,  // 14 ticks — query + signal tags
+  1: 3800,  // 14 ticks — 4 signals stagger + confirmation
+  2: 4000,  // 15 ticks — verdict + supporting note
+  3: 4200,  // 16 ticks — primary authority + bar fill + alternatives
+  4: 4000,  // 15 ticks — 4 quality checks sequentially
+  5: 4000,  // 15 ticks — 5 filing steps progress
+  6: 4200,  // 16 ticks — deadline arc + 3 tracking checks
+  7: 4200,  // 16 ticks — branch cards + full appeal sequence
 }
 
 const STAGE_LABELS: Record<StageId, string> = {
@@ -547,6 +548,12 @@ export function HomeFlowAnimation({ query = '' }: HomeFlowAnimationProps) {
     setTick(0)
   }, [])
 
+  const goBack = useCallback(() => {
+    const previous = ((stageRef.current - 1 + TOTAL_STAGES) % TOTAL_STAGES) as StageId
+    setStage(previous)
+    setTick(0)
+  }, [])
+
   // Tick clock — 200ms per tick
   useEffect(() => {
     if (prefersReduced) return
@@ -612,11 +619,7 @@ export function HomeFlowAnimation({ query = '' }: HomeFlowAnimationProps) {
   }
 
   return (
-    <div
-      role="img"
-      aria-label="Animated walkthrough of the RTI Navigator workflow"
-      className="w-full"
-    >
+    <div role="img" aria-label="Animated walkthrough of the RTI Navigator workflow" className="relative w-full">
       <button
         type="button"
         onClick={() => setPaused((p) => !p)}
@@ -663,6 +666,24 @@ export function HomeFlowAnimation({ query = '' }: HomeFlowAnimationProps) {
           </div>
         </div>
       </button>
+      <div className="pointer-events-none absolute bottom-2.5 right-3 flex items-center gap-1">
+        <button
+          type="button"
+          onClick={goBack}
+          className="pointer-events-auto flex h-6 w-6 items-center justify-center rounded text-white/45 transition-colors hover:bg-white/10 hover:text-white/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/70"
+          aria-label="Previous animation stage"
+        >
+          <ArrowLeft size={13} strokeWidth={2.25} />
+        </button>
+        <button
+          type="button"
+          onClick={advance}
+          className="pointer-events-auto flex h-6 w-6 items-center justify-center rounded text-white/45 transition-colors hover:bg-white/10 hover:text-white/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/70"
+          aria-label="Next animation stage"
+        >
+          <ArrowRight size={13} strokeWidth={2.25} />
+        </button>
+      </div>
     </div>
   )
 }
