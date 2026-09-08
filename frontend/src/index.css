@@ -131,6 +131,14 @@
   .animate-slide-up { animation: none; }
 }
 
+@keyframes rti-slide-in {
+  from { opacity: 0; transform: translateY(5px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  [style*="rti-slide-in"] { animation: none !important; }
+}
+
 /* ───────────────────────────────────────────────────────────────────────────
    Dark mode  (light theme is untouched — every rule below is scoped to html.dark)
    Toggled by `.dark` on <html> (src/lib/theme.ts + ThemeToggle). The app uses

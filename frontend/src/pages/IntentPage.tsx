@@ -2,16 +2,30 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import { ExternalLinkIcon } from 'lucide-react'
+import { HomeFlowAnimation } from '../components/home/HomeFlowAnimation'
 import { AppHeader } from '../components/common/AppHeader'
 import { AppFooter } from '../components/common/AppFooter'
 import { Spinner } from '../components/common/Spinner'
 import { analyzeIntent } from '../services/api'
 import { useWizard } from '../context/WizardContext'
 
-const EXAMPLES = [
-  'How much did the Ministry of Health spend on government hospitals in 2025?',
-  'Provide details of tenders awarded by NHAI for highway construction in 2023–24.',
-  'What is the status of my pending PF withdrawal claim filed in January 2025?',
+const EXAMPLES: { label: string; query: string }[] = [
+  {
+    label: 'Union health spending',
+    query: 'How much did the Ministry of Health spend on government hospitals in 2025?',
+  },
+  {
+    label: 'Medical device procurement',
+    query: 'What approvals, procurement expenditure, and regulatory clearances were involved in the procurement of medical devices for Central Government hospitals in 2025?',
+  },
+  {
+    label: 'Karnataka hospital spending',
+    query: 'Provide the budget allocated and expenditure incurred by the Karnataka Department of Health and Family Welfare for district hospitals during 2024-25.',
+  },
+  {
+    label: 'Broken streetlights',
+    query: "Why haven't the streetlights in my area been repaired by the municipal corporation for the past three months?",
+  },
 ]
 
 const JOURNEY: [string, string, string][] = [
@@ -68,10 +82,10 @@ export default function IntentPage() {
 
       {/* ── Masthead band — pitch + form, side by side ───────────────────── */}
       <div className="bg-primary-900 text-white">
-        <div className="shell-wide py-12 lg:py-16 animate-slide-up
+        <div className="shell-wide py-8 lg:py-10 animate-slide-up
                         grid gap-10 lg:gap-12 xl:gap-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,680px)] lg:items-start">
           {/* Left — the pitch */}
-          <div className="lg:pt-8">
+          <div className="lg:pt-4">
             <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary-300">
               Right to Information Act, 2005 · Jurisdiction-aware routing
             </p>
@@ -83,16 +97,13 @@ export default function IntentPage() {
               finds the Public Information Officer who holds the records, prepares the application,
               and tracks the response.
             </p>
-            <p className="mt-6 text-[13px] text-primary-200">
-              Reviewing the prototype?{' '}
-              <Link to="/filing/dashboard" className="font-medium text-white hover:underline">
-                Jump straight to filing →
-              </Link>
-            </p>
+            <div className="mt-8">
+              <HomeFlowAnimation query={text} />
+            </div>
           </div>
 
           {/* Right — the request form */}
-          <div className="panel p-6 sm:p-8 shadow-[0_1px_2px_rgba(15,23,42,0.06),0_24px_56px_-24px_rgba(2,6,23,0.55)]">
+          <div className="panel p-6 sm:p-8 lg:p-6 shadow-[0_1px_2px_rgba(15,23,42,0.06),0_24px_56px_-24px_rgba(2,6,23,0.55)]">
             <p className="eyebrow">Start with your question</p>
             <h2 className="text-[22px] font-bold text-slate-900 mt-2">What information do you need?</h2>
             <p className="text-sm text-slate-500 mt-2 leading-relaxed">
@@ -100,7 +111,7 @@ export default function IntentPage() {
             </p>
 
             <textarea
-              className="input-base mt-4 min-h-[150px] resize-y text-[15px] leading-relaxed"
+              className="input-base mt-4 min-h-[150px] lg:min-h-[115px] resize-y text-[15px] leading-relaxed"
               placeholder="For example: How much did the Ministry of Health spend on government hospitals in 2025?"
               value={text}
               onChange={(e) => { setText(e.target.value); setError('') }}
@@ -119,24 +130,28 @@ export default function IntentPage() {
               </p>
             )}
 
-            <div className="mt-5">
+            <div className="mt-5 lg:mt-4">
               <p className="section-label mb-2">Try an example</p>
               <div className="flex flex-col divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden">
                 {EXAMPLES.map((ex) => (
                   <button
-                    key={ex}
-                    onClick={() => { setText(ex); setError('') }}
+                    key={ex.label}
+                    onClick={() => { setText(ex.query); setError('') }}
                     disabled={mutation.isPending}
-                    className="text-left text-[13px] text-slate-600 hover:text-primary-800 hover:bg-slate-50
-                               px-3.5 py-2.5 leading-snug transition-colors"
+                    className="text-left px-3.5 py-2.5 lg:py-2 leading-snug transition-colors hover:bg-slate-50 group"
                   >
-                    {ex}
+                    <span className="block text-[11px] font-semibold uppercase tracking-wide text-primary-600 group-hover:text-primary-700">
+                      {ex.label}
+                    </span>
+                    <span className="block text-[13px] text-slate-600 group-hover:text-primary-800 mt-0.5">
+                      {ex.query}
+                    </span>
                   </button>
                 ))}
               </div>
             </div>
 
-            <div className="mt-6 pt-5 border-t border-slate-100 flex items-center justify-between gap-3">
+            <div className="mt-5 lg:mt-4 pt-4 lg:pt-3 border-t border-slate-100 flex items-center justify-between gap-3">
               <span className="text-[13px] text-slate-400">Saved locally in demo mode.</span>
               <button
                 onClick={handleSubmit}
